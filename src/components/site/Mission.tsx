@@ -1,25 +1,35 @@
-import { HeartHandshake, Users, HandCoins, Home } from "lucide-react";
+import { TrendingUp, HeartPulse, Handshake, Briefcase, GraduationCap, Award } from "lucide-react";
 
-const items = [
+const objectives = [
   {
-    icon: HeartHandshake,
-    title: "Bereavement Support",
-    desc: "Immediate, organized assistance to families when a member is lost — covering funeral logistics from Nairobi to Nyatike.",
+    icon: TrendingUp,
+    title: "Development Projects",
+    desc: "Fundraising and coordinating projects that build long-term value for the community.",
   },
   {
-    icon: Users,
-    title: "Unity in the City",
-    desc: "Bringing together Kalerians across Nairobi for fellowship, mutual support, and shared identity.",
+    icon: HeartPulse,
+    title: "Sickness & Bereavement",
+    desc: "Standing with members in times of illness and loss — financially, practically, and emotionally.",
   },
   {
-    icon: HandCoins,
-    title: "Collective Strength",
-    desc: "Pooled member contributions ensure no single family carries the financial weight of bereavement alone.",
+    icon: Handshake,
+    title: "Strategic Partnerships",
+    desc: "Tapping opportunities from financial institutions, CBOs, NGCDF and other partners for the society's benefit.",
   },
   {
-    icon: Home,
-    title: "Honoring Our Roots",
-    desc: "Helping departed members return home to Kaler with dignity, respect, and the support of their community.",
+    icon: Briefcase,
+    title: "Jobs & Enterprise",
+    desc: "Job creation through business set-ups and start-up capital for women and youth.",
+  },
+  {
+    icon: GraduationCap,
+    title: "Youth Empowerment",
+    desc: "Counselling, career guidance, and talent identification to help young Kalerians thrive.",
+  },
+  {
+    icon: Award,
+    title: "A Model Group",
+    desc: "Nurturing a well-run association that other community groups can benchmark against.",
   },
 ];
 
@@ -27,17 +37,34 @@ export const Mission = () => {
   return (
     <section id="mission" className="py-24 bg-background">
       <div className="container">
-        <div className="max-w-2xl mx-auto text-center">
-          <p className="text-sm font-semibold tracking-widest uppercase text-accent">What We Do</p>
+        {/* Vision & Mission */}
+        <div className="grid lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          <div className="p-8 rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
+            <p className="text-xs font-bold tracking-widest uppercase text-accent-glow">Our Vision</p>
+            <p className="mt-4 font-display text-2xl sm:text-3xl leading-snug">
+              Economic empowerment for better health and progress to the members.
+            </p>
+          </div>
+          <div className="p-8 rounded-2xl bg-card border border-border shadow-card">
+            <p className="text-xs font-bold tracking-widest uppercase text-accent">Our Mission</p>
+            <p className="mt-4 font-display text-2xl sm:text-3xl text-primary leading-snug">
+              Eradication of poverty through community empowerment.
+            </p>
+          </div>
+        </div>
+
+        {/* Objectives */}
+        <div className="mt-20 max-w-2xl mx-auto text-center">
+          <p className="text-sm font-semibold tracking-widest uppercase text-accent">Our Objectives</p>
           <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-display font-semibold text-primary">
-            A community built on care.
+            Six commitments to our community.
           </h2>
           <p className="mt-5 text-foreground/70 text-lg">
-            Four pillars guide everything we do as a welfare association.
+            Drawn directly from the association's constitution — what we exist to do.
           </p>
         </div>
-        <div className="mt-16 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {items.map((it) => (
+        <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {objectives.map((it) => (
             <div
               key={it.title}
               className="group p-7 rounded-2xl bg-card border border-border shadow-card hover:shadow-elegant hover:-translate-y-1 transition-all duration-500"
