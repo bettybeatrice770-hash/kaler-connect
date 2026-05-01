@@ -58,8 +58,13 @@ export const Navbar = () => {
               </li>
             ))}
             <li>
+              <Button variant="outline" className="w-full" asChild>
+                <a href="/login" onClick={() => setOpen(false)}>Member Login</a>
+              </Button>
+            </li>
+            <li>
               <Button variant="hero" className="w-full" asChild>
-                <a href="#join" onClick={() => setOpen(false)}>Become a Member</a>
+                <a href="#contact" onClick={() => setOpen(false)}>Become a Member</a>
               </Button>
             </li>
           </ul>
