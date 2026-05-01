@@ -7,6 +7,7 @@ const links = [
   { href: "#mission", label: "Mission" },
   { href: "#membership", label: "Membership" },
   { href: "#contributions", label: "Contributions" },
+  { href: "#leadership", label: "Leadership" },
   { href: "#constitution", label: "Constitution" },
   { href: "#contact", label: "Contact" },
 ];
