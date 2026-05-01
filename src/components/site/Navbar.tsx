@@ -35,9 +35,12 @@ export const Navbar = () => {
             </li>
           ))}
         </ul>
-        <div className="hidden lg:block">
+        <div className="hidden lg:flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <a href="/login">Member Login</a>
+          </Button>
           <Button variant="hero" asChild>
-            <a href="#join">Become a Member</a>
+            <a href="#contact">Become a Member</a>
           </Button>
         </div>
         <button className="lg:hidden text-primary" onClick={() => setOpen(!open)} aria-label="Menu">
