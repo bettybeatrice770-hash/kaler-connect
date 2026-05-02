@@ -9,6 +9,9 @@ import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Profile from "./pages/Profile.tsx";
+import AdminOverview from "./pages/admin/AdminOverview.tsx";
+import AdminMembers from "./pages/admin/AdminMembers.tsx";
+import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -25,6 +28,8 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+            <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
+            <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
