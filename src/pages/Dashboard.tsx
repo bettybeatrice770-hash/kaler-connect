@@ -5,67 +5,112 @@ import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Users, AlertTriangle, CheckCircle2, Wallet } from "lucide-react";
+import { Loader2, Users, AlertTriangle, CheckCircle2, Wallet, AlertOctagon } from "lucide-react";
 import { formatPhoneDisplay } from "@/lib/phone";
 
-type Profile = { id: string; full_name: string; phone: string; relationship: string | null; is_adult: boolean; family_id: string | null };
-type Family = { id: string; family_name: string };
-type Dependent = { id: string; full_name: string; relationship: string | null };
-type Contribution = { id: string; profile_id: string; type: string; amount: number; year: number | null; status: string; paid_at: string | null; notes: string | null };
+type Profile = { id: string; full_name: string; phone: string; family_id: string | null };
+type MemberRecord = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  category: "full_member" | "student" | "woman";
+  status: "active" | "dormant";
+  branch_id: string | null;
+  family_id: string | null;
+  profile_id: string | null;
+  development_paid: number | null;
+  fpf_paid: number | null;
+};
+type Arrear = {
+  id: string;
+  member_record_id: string;
+  type: string;
+  year: number | null;
+  funeral_name: string | null;
+  amount: number;
+  cleared: boolean;
+};
+type Branch = { id: string; name: string };
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<Profile | null>(null);
-  const [family, setFamily] = useState<Family | null>(null);
-  const [members, setMembers] = useState<Profile[]>([]);
-  const [dependents, setDependents] = useState<Dependent[]>([]);
-  const [contribs, setContribs] = useState<Contribution[]>([]);
+  const [myRecord, setMyRecord] = useState<MemberRecord | null>(null);
+  const [familyRecords, setFamilyRecords] = useState<MemberRecord[]>([]);
+  const [arrears, setArrears] = useState<Arrear[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
   useEffect(() => {
     if (!user) return;
-    const load = async () => {
+    (async () => {
       const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
       setMe(profile as Profile | null);
-      if (profile?.family_id) {
-        const [{ data: fam }, { data: mem }, { data: dep }, { data: con }] = await Promise.all([
-          supabase.from("families").select("*").eq("id", profile.family_id).maybeSingle(),
-          supabase.from("profiles").select("*").eq("family_id", profile.family_id).order("full_name"),
-          supabase.from("dependents").select("*").eq("family_id", profile.family_id).order("full_name"),
-          supabase.from("contributions").select("*").eq("family_id", profile.family_id).order("created_at", { ascending: false }),
-        ]);
-        setFamily(fam as Family | null);
-        setMembers((mem as Profile[]) || []);
-        setDependents((dep as Dependent[]) || []);
-        setContribs((con as Contribution[]) || []);
+
+      const { data: brs } = await supabase.from("branches").select("*");
+      setBranches((brs as Branch[]) || []);
+
+      // My linked record(s) - by profile_id OR by family
+      const recordQuery = supabase
+        .from("member_records")
+        .select("*")
+        .or(
+          profile?.family_id
+            ? `profile_id.eq.${user.id},family_id.eq.${profile.family_id}`
+            : `profile_id.eq.${user.id}`
+        );
+      const { data: recs } = await recordQuery;
+      const records = (recs as MemberRecord[]) || [];
+      setFamilyRecords(records);
+      const mine = records.find((r) => r.profile_id === user.id) ?? null;
+      setMyRecord(mine);
+
+      if (records.length) {
+        const { data: arr } = await supabase
+          .from("arrears")
+          .select("*")
+          .in(
+            "member_record_id",
+            records.map((r) => r.id)
+          )
+          .eq("cleared", false);
+        setArrears((arr as Arrear[]) || []);
       }
       setLoading(false);
-    };
-    load();
+    })();
   }, [user]);
 
-  const totalArrears = contribs.filter((c) => c.status === "pending").reduce((s, c) => s + Number(c.amount), 0);
-  const totalPaid = contribs.filter((c) => c.status === "paid").reduce((s, c) => s + Number(c.amount), 0);
+  const branchName = (id: string | null) => branches.find((b) => b.id === id)?.name ?? "—";
+  const totalArrears = arrears.reduce((s, a) => s + Number(a.amount), 0);
+  const totalDevPaid = familyRecords.reduce((s, r) => s + Number(r.development_paid || 0), 0);
+  const totalFpfPaid = familyRecords.reduce((s, r) => s + Number(r.fpf_paid || 0), 0);
+  const isDormant = myRecord?.status === "dormant";
 
-  const memberName = (id: string) => members.find((m) => m.id === id)?.full_name || "—";
+  const arrearsFor = (recId: string) => arrears.filter((a) => a.member_record_id === recId);
 
   if (loading) {
     return (
       <PortalLayout>
-        <div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <div className="grid place-items-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
       </PortalLayout>
     );
   }
 
-  if (!me?.family_id) {
+  if (!myRecord && familyRecords.length === 0) {
     return (
       <PortalLayout>
         <Card>
           <CardHeader>
             <CardTitle>Welcome, {me?.full_name || "member"}</CardTitle>
             <CardDescription>
-              Your account is not yet linked to a family record. Please contact the secretary
-              <strong> Joseph Oluoch</strong> on <a className="text-primary" href="tel:+254701594936">0701 594 936</a>.
+              Your login is not yet linked to a member record. Please contact the secretary{" "}
+              <strong>Joseph Oluoch</strong> on{" "}
+              <a className="text-primary" href="tel:+254701594936">
+                0701 594 936
+              </a>{" "}
+              to link your account.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -78,29 +123,79 @@ const Dashboard = () => {
       <div className="space-y-8">
         <div>
           <p className="text-sm text-muted-foreground">Karibu</p>
-          <h1 className="font-display text-3xl text-primary">{family?.family_name} Family</h1>
+          <h1 className="font-display text-3xl text-primary">{myRecord?.full_name || me?.full_name}</h1>
+          {myRecord && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {branchName(myRecord.branch_id)} branch · {myRecord.category.replace("_", " ")}
+            </p>
+          )}
         </div>
+
+        {isDormant && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertOctagon className="h-5 w-5" /> Membership marked dormant
+              </CardTitle>
+              <CardDescription>
+                Per Article 5(f) of the constitution, members in arrears for more than six months are marked
+                dormant. Clear your arrears below to be reinstated by the committee.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2"><Users className="h-4 w-4" />Family members</CardDescription></CardHeader>
-            <CardContent><p className="text-3xl font-display text-primary">{members.length + dependents.length}</p></CardContent>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Family members
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-display text-primary">{familyRecords.length}</p>
+            </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2 text-destructive"><AlertTriangle className="h-4 w-4" />Outstanding arrears</CardDescription></CardHeader>
-            <CardContent><p className="text-3xl font-display text-destructive">Ksh {totalArrears.toLocaleString()}</p></CardContent>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                Outstanding arrears
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-display text-destructive">Ksh {totalArrears.toLocaleString()}</p>
+            </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2 text-green-700"><CheckCircle2 className="h-4 w-4" />Total paid</CardDescription></CardHeader>
-            <CardContent><p className="text-3xl font-display text-green-700">Ksh {totalPaid.toLocaleString()}</p></CardContent>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-green-700">
+                <CheckCircle2 className="h-4 w-4" />
+                Funds contributed
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-display text-green-700">
+                Ksh {(totalDevPaid + totalFpfPaid).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Dev: {totalDevPaid.toLocaleString()} · FPF: {totalFpfPaid.toLocaleString()}
+              </p>
+            </CardContent>
           </Card>
         </div>
 
         {totalArrears > 0 && (
           <Card className="border-accent bg-accent/10">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-accent" />Pay your arrears</CardTitle>
-              <CardDescription>Use M-Pesa Paybill below, then forward the confirmation SMS to the secretary.</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-accent" />
+                Pay your arrears
+              </CardTitle>
+              <CardDescription>
+                Use M-Pesa Paybill below, then forward the confirmation SMS to the secretary.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid sm:grid-cols-2 gap-4 text-sm">
               <div className="space-y-1">
@@ -113,78 +208,106 @@ const Dashboard = () => {
               </div>
               <div className="sm:col-span-2 text-muted-foreground">
                 After payment, forward the M-Pesa confirmation to secretary Joseph Oluoch on{" "}
-                <a className="text-primary font-medium" href="tel:+254701594936">0701 594 936</a>.
+                <a className="text-primary font-medium" href="tel:+254701594936">
+                  0701 594 936
+                </a>
+                .
               </div>
             </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardHeader><CardTitle>Family members</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Family members</CardTitle>
+            <CardDescription>Everyone in your linked family record</CardDescription>
+          </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Relationship</TableHead>
+                  <TableHead>Branch</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Arrears</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {members.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="font-medium">{m.full_name}{m.id === me.id && <Badge variant="secondary" className="ml-2">You</Badge>}</TableCell>
-                    <TableCell>{m.relationship || "—"}</TableCell>
-                    <TableCell>{formatPhoneDisplay(m.phone)}</TableCell>
-                    <TableCell><Badge variant="outline">{m.is_adult ? "Adult" : "Minor"}</Badge></TableCell>
-                  </TableRow>
-                ))}
-                {dependents.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">{d.full_name}</TableCell>
-                    <TableCell>{d.relationship || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">—</TableCell>
-                    <TableCell><Badge variant="outline">Dependent</Badge></TableCell>
-                  </TableRow>
-                ))}
+                {familyRecords.map((r) => {
+                  const memberArrears = arrearsFor(r.id).reduce((s, a) => s + Number(a.amount), 0);
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">
+                        {r.full_name}
+                        {r.profile_id === user!.id && (
+                          <Badge variant="secondary" className="ml-2">
+                            You
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{branchName(r.branch_id)}</TableCell>
+                      <TableCell className="capitalize">{r.category.replace("_", " ")}</TableCell>
+                      <TableCell>{r.phone ? formatPhoneDisplay(r.phone) : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={r.status === "active" ? "default" : "destructive"} className="capitalize">
+                          {r.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {memberArrears > 0 ? (
+                          <span className="text-destructive">Ksh {memberArrears.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-green-700">Cleared</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Contributions & arrears</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Arrears breakdown</CardTitle>
+            <CardDescription>What's owed and to which fund</CardDescription>
+          </CardHeader>
           <CardContent className="overflow-x-auto">
-            {contribs.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No contributions on record yet.</p>
+            {arrears.length === 0 ? (
+              <p className="text-muted-foreground text-sm">All contributions cleared. Asante sana!</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Member</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Year</TableHead>
+                    <TableHead>Detail</TableHead>
                     <TableHead className="text-right">Amount (Ksh)</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Paid on</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contribs.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>{memberName(c.profile_id)}</TableCell>
-                      <TableCell className="capitalize">{c.type}</TableCell>
-                      <TableCell>{c.year || "—"}</TableCell>
-                      <TableCell className="text-right font-medium">{Number(c.amount).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge variant={c.status === "paid" ? "default" : c.status === "pending" ? "destructive" : "secondary"} className="capitalize">
-                          {c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{c.paid_at ? new Date(c.paid_at).toLocaleDateString() : "—"}</TableCell>
-                    </TableRow>
-                  ))}
+                  {arrears.map((a) => {
+                    const rec = familyRecords.find((r) => r.id === a.member_record_id);
+                    const detail =
+                      a.type === "subscription"
+                        ? `Annual subs ${a.year}`
+                        : a.type === "funeral"
+                        ? `${a.funeral_name} funeral`
+                        : a.year || a.funeral_name || "—";
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell>{rec?.full_name || "—"}</TableCell>
+                        <TableCell className="capitalize">{a.type.replace("_", " ")}</TableCell>
+                        <TableCell>{detail}</TableCell>
+                        <TableCell className="text-right font-medium text-destructive">
+                          {Number(a.amount).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
