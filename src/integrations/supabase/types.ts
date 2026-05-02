@@ -20,11 +20,10 @@ export type Database = {
           cleared: boolean
           cleared_at: string | null
           created_at: string
-          family_id: string | null
           funeral_name: string | null
           id: string
+          member_record_id: string
           notes: string | null
-          profile_id: string
           type: Database["public"]["Enums"]["contribution_type"]
           updated_at: string
           year: number | null
@@ -34,11 +33,10 @@ export type Database = {
           cleared?: boolean
           cleared_at?: string | null
           created_at?: string
-          family_id?: string | null
           funeral_name?: string | null
           id?: string
+          member_record_id: string
           notes?: string | null
-          profile_id: string
           type: Database["public"]["Enums"]["contribution_type"]
           updated_at?: string
           year?: number | null
@@ -48,28 +46,20 @@ export type Database = {
           cleared?: boolean
           cleared_at?: string | null
           created_at?: string
-          family_id?: string | null
           funeral_name?: string | null
           id?: string
+          member_record_id?: string
           notes?: string | null
-          profile_id?: string
           type?: Database["public"]["Enums"]["contribution_type"]
           updated_at?: string
           year?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "arrears_family_id_fkey"
-            columns: ["family_id"]
+            foreignKeyName: "arrears_member_record_id_fkey"
+            columns: ["member_record_id"]
             isOneToOne: false
-            referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "arrears_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "member_records"
             referencedColumns: ["id"]
           },
         ]
@@ -248,6 +238,76 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      member_records: {
+        Row: {
+          branch_id: string | null
+          category: Database["public"]["Enums"]["member_category"]
+          created_at: string
+          development_paid: number | null
+          family_id: string | null
+          fpf_paid: number | null
+          full_name: string
+          id: string
+          notes: string | null
+          phone: string | null
+          profile_id: string | null
+          status: Database["public"]["Enums"]["member_status"]
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          category?: Database["public"]["Enums"]["member_category"]
+          created_at?: string
+          development_paid?: number | null
+          family_id?: string | null
+          fpf_paid?: number | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["member_status"]
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          category?: Database["public"]["Enums"]["member_category"]
+          created_at?: string
+          development_paid?: number | null
+          family_id?: string | null
+          fpf_paid?: number | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["member_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_records_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_records_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
