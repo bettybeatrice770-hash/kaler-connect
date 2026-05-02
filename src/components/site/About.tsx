@@ -18,18 +18,36 @@ export const About = () => {
         <div>
           <p className="text-sm font-semibold tracking-widest uppercase text-accent">Our Story</p>
           <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-display font-semibold text-primary leading-tight">
-            Founded in 1994 by the late Elijah Orwa & community elders.
+            A history of unity and community support.
           </h2>
           <div className="mt-6 space-y-5 text-foreground/80 leading-relaxed">
             <p>
-              Kaler Nairobi Welfare Association was registered with the Registrar of Societies
-              in Kenya in 1994. It was born from a simple, urgent need — to ensure that
-              Kalerians living in Nairobi are never alone when tragedy strikes.
+              The origins of our welfare association trace back to the late <b>1980s</b>. 
+              Following the passing of <b>Arum Oketho</b> from Mageta Wagire, Tanzania, 
+              members of the Kalerian community from <b>Githogoro and Kasarani</b> came 
+              together to contribute towards his funeral. This spirit of unity inspired 
+              the Kalerians to convene a formal meeting in <b>1988</b> at the home of 
+              the late <b>Elijah Orwa</b> in Mathare.
             </p>
             <p>
-              Because Kaler in Nyatike sub-county sits far from the capital, transporting a
-              departed loved one home is a heavy burden for any single family. Together, we
-              shoulder it. Together, we honor our own.
+              During this meeting, the first leadership team was elected:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Zakayo Kamba – Chairperson</li>
+              <li>Magak Ochungo – Secretary</li>
+              <li>Elijah Orwa – Treasurer</li>
+            </ul>
+            <p>
+              The welfare’s first fully organized funeral support was for the late Omogo Pius, 
+              brother to Otono. From that moment, the association steadily grew in strength 
+              and purpose, providing structured support to members during times of need.
+            </p>
+            <p>
+              After years of dedication and persistent advocacy—particularly by the late 
+              Elijah Orwa—the welfare was officially registered with the Registrar of Societies 
+              in 2009. This milestone marked the transition from an informal community 
+              initiative into a recognized institution, ensuring continuity and legitimacy 
+              for future generations.
             </p>
           </div>
           <div className="mt-8 grid sm:grid-cols-2 gap-5">
