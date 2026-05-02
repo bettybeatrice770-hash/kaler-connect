@@ -14,11 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      arrears: {
+        Row: {
+          amount: number
+          cleared: boolean
+          cleared_at: string | null
+          created_at: string
+          family_id: string | null
+          funeral_name: string | null
+          id: string
+          notes: string | null
+          profile_id: string
+          type: Database["public"]["Enums"]["contribution_type"]
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          amount: number
+          cleared?: boolean
+          cleared_at?: string | null
+          created_at?: string
+          family_id?: string | null
+          funeral_name?: string | null
+          id?: string
+          notes?: string | null
+          profile_id: string
+          type: Database["public"]["Enums"]["contribution_type"]
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          amount?: number
+          cleared?: boolean
+          cleared_at?: string | null
+          created_at?: string
+          family_id?: string | null
+          funeral_name?: string | null
+          id?: string
+          notes?: string | null
+          profile_id?: string
+          type?: Database["public"]["Enums"]["contribution_type"]
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arrears_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arrears_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branch_admins: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_admins_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branches: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contributions: {
         Row: {
           amount: number
           created_at: string
           family_id: string
+          funeral_name: string | null
           id: string
           notes: string | null
           paid_at: string | null
@@ -32,6 +143,7 @@ export type Database = {
           amount: number
           created_at?: string
           family_id: string
+          funeral_name?: string | null
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -45,6 +157,7 @@ export type Database = {
           amount?: number
           created_at?: string
           family_id?: string
+          funeral_name?: string | null
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -140,6 +253,8 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          branch_id: string | null
+          category: Database["public"]["Enums"]["member_category"]
           created_at: string
           email: string | null
           family_id: string | null
@@ -148,11 +263,14 @@ export type Database = {
           is_adult: boolean
           phone: string
           relationship: string | null
+          status: Database["public"]["Enums"]["member_status"]
           updated_at: string
         }
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          branch_id?: string | null
+          category?: Database["public"]["Enums"]["member_category"]
           created_at?: string
           email?: string | null
           family_id?: string | null
@@ -161,11 +279,14 @@ export type Database = {
           is_adult?: boolean
           phone: string
           relationship?: string | null
+          status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
         }
         Update: {
           address?: string | null
           avatar_url?: string | null
+          branch_id?: string | null
+          category?: Database["public"]["Enums"]["member_category"]
           created_at?: string
           email?: string | null
           family_id?: string | null
@@ -174,9 +295,17 @@ export type Database = {
           is_adult?: boolean
           phone?: string
           relationship?: string | null
+          status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_family_id_fkey"
             columns: ["family_id"]
@@ -230,6 +359,12 @@ export type Database = {
         | "bereavement"
         | "fine"
         | "other"
+        | "subscription"
+        | "development_fund"
+        | "fpf"
+        | "funeral"
+      member_category: "full_member" | "student" | "woman"
+      member_status: "active" | "dormant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -365,7 +500,13 @@ export const Constants = {
         "bereavement",
         "fine",
         "other",
+        "subscription",
+        "development_fund",
+        "fpf",
+        "funeral",
       ],
+      member_category: ["full_member", "student", "woman"],
+      member_status: ["active", "dormant"],
     },
   },
 } as const
