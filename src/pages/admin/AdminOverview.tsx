@@ -170,7 +170,15 @@ const AdminOverview = () => {
           <CardContent className="grid sm:grid-cols-2 gap-3">
             <Link to="/admin/members" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
               <p className="font-medium text-primary">All members</p>
-              <p className="text-xs text-muted-foreground">Search, filter, edit any member</p>
+              <p className="text-xs text-muted-foreground">Search, edit, add new members</p>
+            </Link>
+            <Link to="/admin/import" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
+              <p className="font-medium text-primary">Bulk Excel import</p>
+              <p className="text-xs text-muted-foreground">Upload .xlsx to update everyone at once</p>
+            </Link>
+            <Link to="/admin/events" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
+              <p className="font-medium text-primary">Mass arrears event</p>
+              <p className="text-xs text-muted-foreground">Add a yearly subscription or funeral charge to many members</p>
             </Link>
             <Link to="/admin/families" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
               <p className="font-medium text-primary">Families &amp; merge</p>
