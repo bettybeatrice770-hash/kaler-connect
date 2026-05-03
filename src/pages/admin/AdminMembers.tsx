@@ -108,12 +108,16 @@ const AdminMembers = () => {
               <ChevronLeft className="h-4 w-4" /> Back
             </Link>
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="font-display text-3xl text-primary">Members</h1>
             <p className="text-sm text-muted-foreground">
               {filtered.length} of {records.length} members shown
             </p>
           </div>
+          <AddMemberDialog branches={branches} onAdded={async () => {
+            const { data: recs } = await supabase.from("member_records").select("*").order("full_name");
+            setRecords((recs as MemberRecord[]) || []);
+          }} />
         </div>
 
         <Card>
