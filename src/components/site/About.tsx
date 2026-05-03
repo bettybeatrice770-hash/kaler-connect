@@ -38,6 +38,10 @@ export const About = () => {
               <li>Elijah Orwa – Treasurer</li>
             </ul>
             <p>
+              The very first constitution of the welfare was drafted by the late <b>Paul Magak Ochungo</b>,
+              laying down the foundational principles that have guided the association ever since.
+            </p>
+            <p>
               The welfare’s first fully organized funeral support was for the late Omogo Pius, 
               brother to Otono. From that moment, the association steadily grew in strength 
               and purpose, providing structured support to members during times of need.

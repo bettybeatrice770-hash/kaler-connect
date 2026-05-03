@@ -11,6 +11,9 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Profile from "./pages/Profile.tsx";
 import AdminOverview from "./pages/admin/AdminOverview.tsx";
 import AdminMembers from "./pages/admin/AdminMembers.tsx";
+import AdminMemberDetail from "./pages/admin/AdminMemberDetail.tsx";
+import AdminFamilies from "./pages/admin/AdminFamilies.tsx";
+import AdminBootstrap from "./pages/admin/AdminBootstrap.tsx";
 import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -30,6 +33,9 @@ const App = () => (
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
             <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
             <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
+            <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
+            <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
+            <Route path="/admin/bootstrap" element={<AdminBootstrap />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

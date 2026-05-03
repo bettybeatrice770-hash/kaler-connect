@@ -1,1 +1,10 @@
 project_id = "ohkswkuenwbntukkmxso"
+
+[functions.admin-bootstrap]
+verify_jwt = true
+
+[functions.issue-member-login]
+verify_jwt = true
+
+[functions.merge-family]
+verify_jwt = true
