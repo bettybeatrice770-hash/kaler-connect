@@ -43,7 +43,7 @@ const AdminEvents = () => {
     if (form.type === "funeral" && !form.funeral_name.trim()) return toast({ title: "Enter the funeral name", variant: "destructive" });
     setBusy(true);
 
-    let q = supabase.from("member_records").select("id, family_id");
+    let q = supabase.from("member_records").select("id");
     if (form.branch_id !== "all") q = q.eq("branch_id", form.branch_id);
     if (form.category !== "all") q = q.eq("category", form.category as any);
     if (form.status !== "all") q = q.eq("status", form.status as any);
@@ -52,7 +52,6 @@ const AdminEvents = () => {
 
     const rows = targets.map((m: any) => ({
       member_record_id: m.id,
-      family_id: m.family_id,
       type: form.type as any,
       year: form.year || null,
       funeral_name: form.funeral_name || null,
