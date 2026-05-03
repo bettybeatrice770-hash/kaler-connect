@@ -13,8 +13,8 @@ export const Footer = () => {
             </div>
           </div>
           <p className="mt-5 text-sm leading-relaxed max-w-md">
-            Founded in 1994 by the late Elijah Orwa and fellow elders. Registered with the
-            Registrar of Societies, Kenya. Standing together for Kalerians in Nairobi.
+            Founded in 1988 by the late Elijah Orwa and fellow elders. Registered with the
+            Registrar of Societies, Kenya in 2009. Standing together for Kalerians in Nairobi.
           </p>
         </div>
         <div>
