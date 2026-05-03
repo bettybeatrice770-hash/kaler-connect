@@ -253,4 +253,76 @@ const AdminMembers = () => {
   );
 };
 
+const AddMemberDialog = ({ branches, onAdded }: { branches: Branch[]; onAdded: () => void }) => {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ full_name: "", phone: "", branch_id: "", category: "full_member", status: "active" });
+
+  const submit = async () => {
+    if (!form.full_name.trim()) return toast({ title: "Name required", variant: "destructive" });
+    let phone: string | null = null;
+    if (form.phone.trim()) {
+      phone = normalizeKenyanPhone(form.phone);
+      if (!phone) return toast({ title: "Invalid phone", description: "Use a valid Kenyan number, or leave blank", variant: "destructive" });
+    }
+    setBusy(true);
+    const { error } = await supabase.from("member_records").insert({
+      full_name: form.full_name.trim(),
+      phone,
+      branch_id: form.branch_id || null,
+      category: form.category as any,
+      status: form.status as any,
+    });
+    setBusy(false);
+    if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    toast({ title: "Member added" });
+    setForm({ full_name: "", phone: "", branch_id: "", category: "full_member", status: "active" });
+    setOpen(false);
+    onAdded();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="hero"><Plus className="h-4 w-4" /> Add member</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Add a new member</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Full name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
+          <div><Label>Phone (optional)</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="0712345678" /></div>
+          <div><Label>Branch</Label>
+            <Select value={form.branch_id} onValueChange={(v) => setForm({ ...form, branch_id: v })}>
+              <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
+              <SelectContent>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+            </Select></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Category</Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full_member">Full member</SelectItem>
+                  <SelectItem value="woman">Woman</SelectItem>
+                  <SelectItem value="student">Student</SelectItem>
+                </SelectContent>
+              </Select></div>
+            <div><Label>Status</Label>
+              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="dormant">Dormant</SelectItem>
+                </SelectContent>
+              </Select></div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={busy} variant="hero">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export default AdminMembers;
