@@ -14,8 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, ChevronLeft } from "lucide-react";
-import { formatPhoneDisplay } from "@/lib/phone";
+import { Loader2, Search, ChevronLeft, Plus } from "lucide-react";
+import { formatPhoneDisplay, normalizeKenyanPhone } from "@/lib/phone";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 
 type Branch = { id: string; name: string };
 type MemberRecord = {
