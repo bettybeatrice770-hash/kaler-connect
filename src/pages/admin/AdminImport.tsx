@@ -54,6 +54,7 @@ const AdminImport = () => {
   const [extraHeaders, setExtraHeaders] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
+  const [mode, setMode] = useState<"update" | "override">("update");
 
   const handleFile = async (file: File) => {
     const buf = await file.arrayBuffer();
