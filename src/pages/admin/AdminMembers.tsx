@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, ChevronLeft, Plus } from "lucide-react";
+import { Loader2, Search, ChevronLeft, Plus, Download } from "lucide-react";
+import { downloadMembersExcel } from "@/lib/exportExcel";
 import { formatPhoneDisplay, normalizeKenyanPhone } from "@/lib/phone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,7 @@ type MemberRecord = {
   full_name: string;
   phone: string | null;
   category: "full_member" | "student" | "woman";
-  status: "active" | "dormant";
+  status: "active" | "dormant" | "suspended" | "left_welfare";
   branch_id: string | null;
   family_id: string | null;
   profile_id: string | null;
@@ -45,18 +46,28 @@ const AdminMembers = () => {
   const categoryFilter = params.get("category") || "all";
   const statusFilter = params.get("status") || "all";
 
+  const reload = async () => {
+    const [{ data: brs }, { data: recs }, { data: arr }] = await Promise.all([
+      supabase.from("branches").select("*").order("name"),
+      supabase.from("member_records").select("*").order("full_name"),
+      supabase.from("arrears").select("member_record_id, amount").eq("cleared", false),
+    ]);
+    setBranches((brs as Branch[]) || []);
+    setRecords((recs as MemberRecord[]) || []);
+    setArrears((arr as Arrear[]) || []);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      const [{ data: brs }, { data: recs }, { data: arr }] = await Promise.all([
-        supabase.from("branches").select("*").order("name"),
-        supabase.from("member_records").select("*").order("full_name"),
-        supabase.from("arrears").select("member_record_id, amount").eq("cleared", false),
-      ]);
-      setBranches((brs as Branch[]) || []);
-      setRecords((recs as MemberRecord[]) || []);
-      setArrears((arr as Arrear[]) || []);
-      setLoading(false);
-    })();
+    reload();
+    const onFocus = () => reload();
+    window.addEventListener("focus", onFocus);
+    const channel = supabase
+      .channel("admin-members-arrears")
+      .on("postgres_changes", { event: "*", schema: "public", table: "arrears" }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_records" }, () => reload())
+      .subscribe();
+    return () => { window.removeEventListener("focus", onFocus); supabase.removeChannel(channel); };
   }, []);
 
   const arrearsByMember = useMemo(() => {
@@ -114,6 +125,11 @@ const AdminMembers = () => {
               {filtered.length} of {records.length} members shown
             </p>
           </div>
+          <Button variant="outline" onClick={async () => {
+            const branchName = branchFilter === "all" ? "all" : (branches.find((b) => b.id === branchFilter)?.name || "branch").replace(/\s+/g, "-").toLowerCase();
+            try { await downloadMembersExcel(branchFilter === "all" ? null : branchFilter, `kaler-members-${branchName}`); }
+            catch (e: any) { toast({ title: "Export failed", description: e.message, variant: "destructive" }); }
+          }}><Download className="h-4 w-4" /> Excel</Button>
           <AddMemberDialog branches={branches} onAdded={async () => {
             const { data: recs } = await supabase.from("member_records").select("*").order("full_name");
             setRecords((recs as MemberRecord[]) || []);
@@ -166,6 +182,8 @@ const AdminMembers = () => {
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="dormant">Dormant</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="left_welfare">Left welfare</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
@@ -191,7 +209,11 @@ const AdminMembers = () => {
                   return (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">
-                        <Link to={`/admin/members/${r.id}`} className="hover:text-primary">
+                        <Link
+                          to={`/admin/members/${r.id}`}
+                          state={{ from: `/admin/members?${params.toString()}` }}
+                          className="hover:text-primary"
+                        >
                           {r.full_name}
                         </Link>
                       </TableCell>
@@ -203,7 +225,7 @@ const AdminMembers = () => {
                           variant={r.status === "active" ? "default" : "destructive"}
                           className="capitalize"
                         >
-                          {r.status}
+                          {String(r.status).replace("_", " ")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -312,6 +334,8 @@ const AddMemberDialog = ({ branches, onAdded }: { branches: Branch[]; onAdded: (
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="dormant">Dormant</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="left_welfare">Left welfare</SelectItem>
                 </SelectContent>
               </Select></div>
           </div>

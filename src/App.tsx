@@ -16,6 +16,9 @@ import AdminFamilies from "./pages/admin/AdminFamilies.tsx";
 import AdminBootstrap from "./pages/admin/AdminBootstrap.tsx";
 import AdminEvents from "./pages/admin/AdminEvents.tsx";
 import AdminImport from "./pages/admin/AdminImport.tsx";
+import AdminRoles from "./pages/admin/AdminRoles.tsx";
+import ForgotPassword from "./pages/ForgotPassword.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
 import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -31,6 +34,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
             <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
             <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />

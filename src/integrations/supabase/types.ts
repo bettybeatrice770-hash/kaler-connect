@@ -241,6 +241,8 @@ export type Database = {
       }
       member_records: {
         Row: {
+          admin_notes: string | null
+          advance_subscription_paid: number | null
           branch_id: string | null
           category: Database["public"]["Enums"]["member_category"]
           created_at: string
@@ -256,6 +258,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_notes?: string | null
+          advance_subscription_paid?: number | null
           branch_id?: string | null
           category?: Database["public"]["Enums"]["member_category"]
           created_at?: string
@@ -271,6 +275,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_notes?: string | null
+          advance_subscription_paid?: number | null
           branch_id?: string | null
           category?: Database["public"]["Enums"]["member_category"]
           created_at?: string
@@ -409,9 +415,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_branch_rep_for: {
+        Args: { _branch: string; _uid: string }
+        Returns: boolean
+      }
+      is_officer: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "member"
+      app_role: "admin" | "member" | "branch_rep" | "officer"
       contribution_status: "pending" | "paid" | "waived"
       contribution_type:
         | "registration"
@@ -423,8 +434,10 @@ export type Database = {
         | "development_fund"
         | "fpf"
         | "funeral"
+        | "fines_penalties"
+        | "advance_subscription"
       member_category: "full_member" | "student" | "woman"
-      member_status: "active" | "dormant"
+      member_status: "active" | "dormant" | "left_welfare" | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -552,7 +565,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "member"],
+      app_role: ["admin", "member", "branch_rep", "officer"],
       contribution_status: ["pending", "paid", "waived"],
       contribution_type: [
         "registration",
@@ -564,9 +577,11 @@ export const Constants = {
         "development_fund",
         "fpf",
         "funeral",
+        "fines_penalties",
+        "advance_subscription",
       ],
       member_category: ["full_member", "student", "woman"],
-      member_status: ["active", "dormant"],
+      member_status: ["active", "dormant", "left_welfare", "suspended"],
     },
   },
 } as const

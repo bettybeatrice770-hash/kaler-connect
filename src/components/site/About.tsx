@@ -38,7 +38,7 @@ export const About = () => {
               <li>Elijah Orwa – Treasurer</li>
             </ul>
             <p>
-              The very first constitution of the welfare was drafted by the late <b>Paul Magak Ochungo</b>,
+              The very first constitution of the welfare was drafted by <b>Paul Magak Ochungo</b>,
               laying down the foundational principles that have guided the association ever since.
             </p>
             <p>

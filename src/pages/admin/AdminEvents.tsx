@@ -94,8 +94,10 @@ const AdminEvents = () => {
                 <SelectContent>
                   <SelectItem value="subscription">Subscription (yearly)</SelectItem>
                   <SelectItem value="funeral">Funeral</SelectItem>
-                  <SelectItem value="fpf">FPF</SelectItem>
+                  <SelectItem value="fpf">FEF</SelectItem>
                   <SelectItem value="development_fund">Development fund</SelectItem>
+                  <SelectItem value="fines_penalties">Fines &amp; penalties</SelectItem>
+                  <SelectItem value="advance_subscription">Advance subscription</SelectItem>
                 </SelectContent>
               </Select></div>
             <div><Label>Year</Label>
