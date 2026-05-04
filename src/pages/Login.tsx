@@ -105,6 +105,9 @@ const Login = () => {
             </form>
             <div className="mt-6 text-sm text-muted-foreground text-center space-y-2">
               <p>
+                <Link to="/forgot-password" className="text-primary font-medium hover:underline">Forgot your password?</Link>
+              </p>
+              <p>
                 First time here? Contact the secretary <strong className="text-foreground">Joseph Oluoch</strong> on{" "}
                 <a href="tel:+254701594936" className="text-primary font-medium">0701 594 936</a> to receive your login details.
               </p>
