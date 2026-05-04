@@ -45,18 +45,28 @@ const AdminMembers = () => {
   const categoryFilter = params.get("category") || "all";
   const statusFilter = params.get("status") || "all";
 
+  const reload = async () => {
+    const [{ data: brs }, { data: recs }, { data: arr }] = await Promise.all([
+      supabase.from("branches").select("*").order("name"),
+      supabase.from("member_records").select("*").order("full_name"),
+      supabase.from("arrears").select("member_record_id, amount").eq("cleared", false),
+    ]);
+    setBranches((brs as Branch[]) || []);
+    setRecords((recs as MemberRecord[]) || []);
+    setArrears((arr as Arrear[]) || []);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      const [{ data: brs }, { data: recs }, { data: arr }] = await Promise.all([
-        supabase.from("branches").select("*").order("name"),
-        supabase.from("member_records").select("*").order("full_name"),
-        supabase.from("arrears").select("member_record_id, amount").eq("cleared", false),
-      ]);
-      setBranches((brs as Branch[]) || []);
-      setRecords((recs as MemberRecord[]) || []);
-      setArrears((arr as Arrear[]) || []);
-      setLoading(false);
-    })();
+    reload();
+    const onFocus = () => reload();
+    window.addEventListener("focus", onFocus);
+    const channel = supabase
+      .channel("admin-members-arrears")
+      .on("postgres_changes", { event: "*", schema: "public", table: "arrears" }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_records" }, () => reload())
+      .subscribe();
+    return () => { window.removeEventListener("focus", onFocus); supabase.removeChannel(channel); };
   }, []);
 
   const arrearsByMember = useMemo(() => {
