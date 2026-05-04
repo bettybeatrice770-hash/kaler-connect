@@ -26,7 +26,7 @@ type MemberRecord = {
   full_name: string;
   phone: string | null;
   category: "full_member" | "student" | "woman";
-  status: "active" | "dormant";
+  status: "active" | "dormant" | "suspended" | "left_welfare";
   branch_id: string | null;
   family_id: string | null;
   profile_id: string | null;
@@ -166,6 +166,8 @@ const AdminMembers = () => {
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="dormant">Dormant</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="left_welfare">Left welfare</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
@@ -191,7 +193,11 @@ const AdminMembers = () => {
                   return (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">
-                        <Link to={`/admin/members/${r.id}`} className="hover:text-primary">
+                        <Link
+                          to={`/admin/members/${r.id}`}
+                          state={{ from: `/admin/members?${params.toString()}` }}
+                          className="hover:text-primary"
+                        >
                           {r.full_name}
                         </Link>
                       </TableCell>
@@ -203,7 +209,7 @@ const AdminMembers = () => {
                           variant={r.status === "active" ? "default" : "destructive"}
                           className="capitalize"
                         >
-                          {r.status}
+                          {String(r.status).replace("_", " ")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
