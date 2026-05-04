@@ -191,8 +191,19 @@ const AdminImport = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Upload spreadsheet</CardTitle>
+            <CardDescription>Pick how the upload should behave when a member already exists.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="grid sm:grid-cols-2 gap-2">
+              <button type="button" onClick={() => setMode("update")} className={`p-3 text-left border rounded-md ${mode==="update"?"border-primary bg-primary/5":"border-border"}`}>
+                <p className="font-medium text-sm">Update current list only</p>
+                <p className="text-xs text-muted-foreground">Match by name; append new arrears columns to the existing record.</p>
+              </button>
+              <button type="button" onClick={() => setMode("override")} className={`p-3 text-left border rounded-md ${mode==="override"?"border-destructive bg-destructive/5":"border-border"}`}>
+                <p className="font-medium text-sm">Override previous update</p>
+                <p className="text-xs text-muted-foreground">For matched members, delete existing arrears first, then load fresh.</p>
+              </button>
+            </div>
             <Input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
             {extraHeaders.length > 0 && (
               <p className="text-xs text-muted-foreground">
