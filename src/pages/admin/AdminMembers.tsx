@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, ChevronLeft, Plus } from "lucide-react";
+import { Loader2, Search, ChevronLeft, Plus, Download } from "lucide-react";
+import { downloadMembersExcel } from "@/lib/exportExcel";
 import { formatPhoneDisplay, normalizeKenyanPhone } from "@/lib/phone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
