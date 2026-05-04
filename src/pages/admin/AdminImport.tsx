@@ -114,6 +114,16 @@ const AdminImport = () => {
     const memberByName = new Map<string, any>();
     (existingMembers || []).forEach((m: any) => memberByName.set(m.full_name.trim().toLowerCase(), m));
 
+    if (mode === "override") {
+      setProgress("Override mode: clearing existing arrears for matched members...");
+      const matchedIds = rows
+        .map((r) => memberByName.get(r.full_name.toLowerCase())?.id)
+        .filter(Boolean);
+      if (matchedIds.length) {
+        await supabase.from("arrears").delete().in("member_record_id", matchedIds);
+      }
+    }
+
     let upserts = 0, inserts = 0, arrearCount = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
