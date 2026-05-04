@@ -318,6 +318,8 @@ const AddMemberDialog = ({ branches, onAdded }: { branches: Branch[]; onAdded: (
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="dormant">Dormant</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="left_welfare">Left welfare</SelectItem>
                 </SelectContent>
               </Select></div>
           </div>
