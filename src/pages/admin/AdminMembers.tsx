@@ -125,6 +125,11 @@ const AdminMembers = () => {
               {filtered.length} of {records.length} members shown
             </p>
           </div>
+          <Button variant="outline" onClick={async () => {
+            const branchName = branchFilter === "all" ? "all" : (branches.find((b) => b.id === branchFilter)?.name || "branch").replace(/\s+/g, "-").toLowerCase();
+            try { await downloadMembersExcel(branchFilter === "all" ? null : branchFilter, `kaler-members-${branchName}`); }
+            catch (e: any) { toast({ title: "Export failed", description: e.message, variant: "destructive" }); }
+          }}><Download className="h-4 w-4" /> Excel</Button>
           <AddMemberDialog branches={branches} onAdded={async () => {
             const { data: recs } = await supabase.from("member_records").select("*").order("full_name");
             setRecords((recs as MemberRecord[]) || []);
