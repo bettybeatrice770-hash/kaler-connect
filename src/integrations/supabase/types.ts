@@ -241,6 +241,8 @@ export type Database = {
       }
       member_records: {
         Row: {
+          admin_notes: string | null
+          advance_subscription_paid: number | null
           branch_id: string | null
           category: Database["public"]["Enums"]["member_category"]
           created_at: string
@@ -256,6 +258,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_notes?: string | null
+          advance_subscription_paid?: number | null
           branch_id?: string | null
           category?: Database["public"]["Enums"]["member_category"]
           created_at?: string
@@ -271,6 +275,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_notes?: string | null
+          advance_subscription_paid?: number | null
           branch_id?: string | null
           category?: Database["public"]["Enums"]["member_category"]
           created_at?: string
@@ -409,6 +415,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_branch_rep_for: {
+        Args: { _branch: string; _uid: string }
+        Returns: boolean
+      }
+      is_officer: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "member" | "branch_rep" | "officer"
