@@ -145,7 +145,8 @@ const AdminMemberDetail = () => {
       // Savings types: bump the corresponding paid total on member_record instead of creating arrears
       const col = newArr.type === "fpf" ? "fpf_paid" : newArr.type === "development_fund" ? "development_paid" : "advance_subscription_paid";
       const current = Number(record[col] || 0);
-      const { error } = await supabase.from("member_records").update({ [col]: current + amt }).eq("id", id);
+      const update: any = {}; update[col] = current + amt;
+      const { error } = await supabase.from("member_records").update(update).eq("id", id);
       if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     } else {
       const { error } = await supabase.from("arrears").insert({
