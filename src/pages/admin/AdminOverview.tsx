@@ -186,9 +186,17 @@ const AdminOverview = () => {
                   <div><p className="text-xs text-muted-foreground">Women</p><p className="font-semibold">{b.women}</p></div>
                   <div><p className="text-xs text-muted-foreground">Students</p><p className="font-semibold">{b.students}</p></div>
                 </div>
-                <div className="mt-3 flex items-center gap-3 text-xs">
-                  <span className="text-green-700">● {b.active} active</span>
-                  <span className="text-destructive">● {b.dormant} dormant</span>
+                <div className="mt-3 space-y-1 text-xs">
+                  {STATUS_KEYS.map((k) => {
+                    const sb = b.statusBreakdown[k];
+                    const colorClass = k === "active" ? "text-green-700" : "text-destructive";
+                    return (
+                      <div key={k} className={`flex items-center justify-between ${colorClass}`}>
+                        <span>{STATUS_LABELS[k]} {sb.count}</span>
+                        <span>Arrears – Ksh {sb.arrears.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </Link>
             ))}
