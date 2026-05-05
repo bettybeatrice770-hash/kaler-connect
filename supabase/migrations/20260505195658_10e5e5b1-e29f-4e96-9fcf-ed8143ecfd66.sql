@@ -1,0 +1,10 @@
+CREATE INDEX IF NOT EXISTS idx_arrears_member_cleared ON public.arrears(member_record_id, cleared);
+CREATE INDEX IF NOT EXISTS idx_arrears_cleared ON public.arrears(cleared) WHERE cleared = false;
+CREATE INDEX IF NOT EXISTS idx_member_records_branch ON public.member_records(branch_id);
+CREATE INDEX IF NOT EXISTS idx_member_records_status ON public.member_records(status);
+CREATE INDEX IF NOT EXISTS idx_member_records_profile ON public.member_records(profile_id);
+CREATE INDEX IF NOT EXISTS idx_member_records_family ON public.member_records(family_id);
+CREATE INDEX IF NOT EXISTS idx_branch_admins_user ON public.branch_admins(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user ON public.user_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_family ON public.profiles(family_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_branch ON public.profiles(branch_id);

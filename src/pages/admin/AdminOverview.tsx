@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download } from "lucide-react";
@@ -28,6 +29,8 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_KEYS = ["active", "dormant", "suspended", "left_welfare"];
 
 const AdminOverview = () => {
+  const { isAdmin, isOfficer, isBranchRep, branchAdminIds } = useAuth();
+  const branchScoped = isBranchRep && !isAdmin && !isOfficer;
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [records, setRecords] = useState<MemberRecord[]>([]);
@@ -41,12 +44,19 @@ const AdminOverview = () => {
         supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
         supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
       ]);
-      setBranches((brs as Branch[]) || []);
-      setRecords((recs as MemberRecord[]) || []);
-      setArrears((arr as Arrear[]) || []);
+      let allBranches = (brs as Branch[]) || [];
+      let allRecs = (recs as MemberRecord[]) || [];
+      if (branchScoped) {
+        allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
+        allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
+      }
+      const recIds = new Set(allRecs.map((r) => r.id));
+      setBranches(allBranches);
+      setRecords(allRecs);
+      setArrears(((arr as Arrear[]) || []).filter((a) => recIds.has(a.member_record_id)));
       setLoading(false);
     })();
-  }, []);
+  }, [branchScoped, branchAdminIds.join(",")]);
 
   const totalArrears = useMemo(() => arrears.reduce((s, a) => s + Number(a.amount), 0), [arrears]);
 

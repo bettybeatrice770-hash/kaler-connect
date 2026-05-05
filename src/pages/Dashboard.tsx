@@ -14,7 +14,7 @@ type MemberRecord = {
   full_name: string;
   phone: string | null;
   category: "full_member" | "student" | "woman";
-  status: "active" | "dormant";
+  status: "active" | "dormant" | "suspended" | "left_welfare";
   branch_id: string | null;
   family_id: string | null;
   profile_id: string | null;
@@ -86,7 +86,7 @@ const Dashboard = () => {
   const totalDevPaid = familyRecords.reduce((s, r) => s + Number(r.development_paid || 0), 0);
   const totalFpfPaid = familyRecords.reduce((s, r) => s + Number(r.fpf_paid || 0), 0);
   const totalAdvPaid = familyRecords.reduce((s, r) => s + Number(r.advance_subscription_paid || 0), 0);
-  const isDormant = myRecord?.status === "dormant";
+  const status = myRecord?.status;
 
   const arrearsFor = (recId: string) => arrears.filter((a) => a.member_record_id === recId);
 
@@ -133,15 +133,47 @@ const Dashboard = () => {
           )}
         </div>
 
-        {isDormant && (
+        {status === "active" && (
+          <Card className="border-green-700/40 bg-green-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-700">
+                <CheckCircle2 className="h-5 w-5" /> Active Member
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        )}
+        {status === "dormant" && (
           <Card className="border-destructive/50 bg-destructive/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertOctagon className="h-5 w-5" /> Membership marked dormant
               </CardTitle>
               <CardDescription>
-                Per Article 5(f) of the constitution, members in arrears for more than six months are marked
-                dormant. Clear your arrears below to be reinstated by the committee.
+                Per Article 5(f), members who fail to pay annual subscriptions for more than six months automatically cease to be members and are struck off the register. Per Article 19(c), failure to pay funeral contributions for two consecutive funerals also results in cessation of membership. Reinstatement is possible upon clearing all arrears and required contributions.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+        {status === "left_welfare" && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertOctagon className="h-5 w-5" /> Left Welfare
+              </CardTitle>
+              <CardDescription>
+                Per Article 5(c), members who resign are not entitled to refunds of subscriptions or contributions.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+        {status === "suspended" && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertOctagon className="h-5 w-5" /> Suspended
+              </CardTitle>
+              <CardDescription>
+                Per Article 5(d), members may be suspended or expelled if their conduct harms the reputation or dignity of the society or contravenes the constitution. Suspended members retain the right to address the general meeting considering their expulsion.
               </CardDescription>
             </CardHeader>
           </Card>
