@@ -6,7 +6,7 @@ import { LayoutDashboard, UserCog, ShieldCheck, LogOut, Home } from "lucide-reac
 import { cn } from "@/lib/utils";
 
 export const PortalLayout = ({ children }: { children: ReactNode }) => {
-  const { signOut, isAdmin } = useAuth();
+  const { signOut, isAdmin, isStaff } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -18,7 +18,7 @@ export const PortalLayout = ({ children }: { children: ReactNode }) => {
   const navItems = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/profile", label: "My Profile", icon: UserCog },
-    ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: ShieldCheck }] : []),
+    ...(isStaff ? [{ to: "/admin", label: "Admin", icon: ShieldCheck }] : []),
   ];
 
   return (
