@@ -20,6 +20,7 @@ type MemberRecord = {
   profile_id: string | null;
   development_paid: number | null;
   fpf_paid: number | null;
+  advance_subscription_paid: number | null;
 };
 type Arrear = {
   id: string;
@@ -84,6 +85,7 @@ const Dashboard = () => {
   const totalArrears = arrears.reduce((s, a) => s + Number(a.amount), 0);
   const totalDevPaid = familyRecords.reduce((s, r) => s + Number(r.development_paid || 0), 0);
   const totalFpfPaid = familyRecords.reduce((s, r) => s + Number(r.fpf_paid || 0), 0);
+  const totalAdvPaid = familyRecords.reduce((s, r) => s + Number(r.advance_subscription_paid || 0), 0);
   const isDormant = myRecord?.status === "dormant";
 
   const arrearsFor = (recId: string) => arrears.filter((a) => a.member_record_id === recId);
@@ -180,8 +182,14 @@ const Dashboard = () => {
                 Ksh {(totalDevPaid + totalFpfPaid).toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Dev: {totalDevPaid.toLocaleString()} · FPF: {totalFpfPaid.toLocaleString()}
+                Dev: {totalDevPaid.toLocaleString()} · FEF: {totalFpfPaid.toLocaleString()}
               </p>
+              {totalAdvPaid > 0 && (
+                <>
+                  <p className="text-xs text-muted-foreground mt-1">adv.Contribution</p>
+                  <p className="text-3xl font-display text-green-700">Ksh {totalAdvPaid.toLocaleString()}</p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
