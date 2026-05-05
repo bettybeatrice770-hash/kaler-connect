@@ -77,6 +77,14 @@ const AdminOverview = () => {
 
   const byBranch = useMemo(() => branches.map((b) => {
     const rs = records.filter((r) => r.branch_id === b.id);
+    const statusBreakdown: Record<string, { count: number; arrears: number }> = {};
+    STATUS_KEYS.forEach((k) => (statusBreakdown[k] = { count: 0, arrears: 0 }));
+    for (const r of rs) {
+      if (statusBreakdown[r.status]) {
+        statusBreakdown[r.status].count += 1;
+        statusBreakdown[r.status].arrears += arrearsByMember[r.id] || 0;
+      }
+    }
     return {
       ...b, total: rs.length,
       full: rs.filter((r) => r.category === "full_member").length,
@@ -84,8 +92,9 @@ const AdminOverview = () => {
       students: rs.filter((r) => r.category === "student").length,
       active: rs.filter((r) => r.status === "active").length,
       dormant: rs.filter((r) => r.status === "dormant").length,
+      statusBreakdown,
     };
-  }), [branches, records]);
+  }), [branches, records, arrearsByMember]);
 
   const exportAll = async () => {
     setExporting(true);
