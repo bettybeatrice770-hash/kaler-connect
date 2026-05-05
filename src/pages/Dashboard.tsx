@@ -20,6 +20,7 @@ type MemberRecord = {
   profile_id: string | null;
   development_paid: number | null;
   fpf_paid: number | null;
+  advance_subscription_paid: number | null;
 };
 type Arrear = {
   id: string;
