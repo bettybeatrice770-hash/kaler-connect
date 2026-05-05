@@ -85,6 +85,7 @@ const Dashboard = () => {
   const totalArrears = arrears.reduce((s, a) => s + Number(a.amount), 0);
   const totalDevPaid = familyRecords.reduce((s, r) => s + Number(r.development_paid || 0), 0);
   const totalFpfPaid = familyRecords.reduce((s, r) => s + Number(r.fpf_paid || 0), 0);
+  const totalAdvPaid = familyRecords.reduce((s, r) => s + Number(r.advance_subscription_paid || 0), 0);
   const isDormant = myRecord?.status === "dormant";
 
   const arrearsFor = (recId: string) => arrears.filter((a) => a.member_record_id === recId);
