@@ -10,6 +10,7 @@ type AuthContextType = {
   isOfficer: boolean;
   isBranchRep: boolean;
   isStaff: boolean;
+  branchAdminIds: string[];
   signOut: () => Promise<void>;
 };
 
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   isOfficer: false,
   isBranchRep: false,
   isStaff: false,
+  branchAdminIds: [],
   signOut: async () => {},
 });
 
@@ -29,10 +31,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
+  const [branchAdminIds, setBranchAdminIds] = useState<string[]>([]);
 
   const loadRoles = async (uid: string) => {
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-    setRoles((data || []).map((r: any) => r.role));
+    const [{ data: r }, { data: ba }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", uid),
+      supabase.from("branch_admins").select("branch_id").eq("user_id", uid),
+    ]);
+    setRoles((r || []).map((x: any) => x.role));
+    setBranchAdminIds((ba || []).map((x: any) => x.branch_id));
   };
 
   useEffect(() => {
@@ -61,6 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setUser(null);
     setRoles([]);
+    setBranchAdminIds([]);
   };
 
   const isAdmin = roles.includes("admin");
@@ -69,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isStaff = isAdmin || isOfficer || isBranchRep;
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, isAdmin, isOfficer, isBranchRep, isStaff, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, isAdmin, isOfficer, isBranchRep, isStaff, branchAdminIds, signOut }}>
       {children}
     </AuthContext.Provider>
   );
