@@ -139,7 +139,9 @@ const AdminOverview = () => {
             <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2 text-green-700"><Coins className="h-4 w-4" />FEF</CardDescription></CardHeader>
             <CardContent>
               <p className="text-2xl font-display text-green-700">Ksh {fefTotal.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">{fefCount} contributors</p>
+              <p className="text-xs text-muted-foreground mt-1">{fefCount} contributors</p>
+              <p className="text-xs text-muted-foreground mt-1">adv.Contribution</p>
+              <p className="text-3xl font-display text-green-700">Ksh {advTotal.toLocaleString()}</p>
             </CardContent>
           </Card>
         </div>
