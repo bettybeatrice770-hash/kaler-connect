@@ -182,8 +182,14 @@ const Dashboard = () => {
                 Ksh {(totalDevPaid + totalFpfPaid).toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Dev: {totalDevPaid.toLocaleString()} · FPF: {totalFpfPaid.toLocaleString()}
+                Dev: {totalDevPaid.toLocaleString()} · FEF: {totalFpfPaid.toLocaleString()}
               </p>
+              {totalAdvPaid > 0 && (
+                <>
+                  <p className="text-xs text-muted-foreground mt-1">adv.Contribution</p>
+                  <p className="text-3xl font-display text-green-700">Ksh {totalAdvPaid.toLocaleString()}</p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
