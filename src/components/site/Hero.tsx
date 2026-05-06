@@ -10,6 +10,8 @@ export const Hero = () => {
         alt="Nairobi skyline at sunset"
         width={1920}
         height={1088}
+        fetchPriority="high"
+        decoding="async"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-hero" />
