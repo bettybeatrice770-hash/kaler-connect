@@ -62,6 +62,13 @@ export type Database = {
             referencedRelation: "member_records"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "arrears_member_record_id_fkey"
+            columns: ["member_record_id"]
+            isOneToOne: false
+            referencedRelation: "member_records_admin"
+            referencedColumns: ["id"]
+          },
         ]
       }
       branch_admins: {
@@ -404,7 +411,82 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      member_records_admin: {
+        Row: {
+          admin_notes: string | null
+          advance_subscription_paid: number | null
+          branch_id: string | null
+          category: Database["public"]["Enums"]["member_category"] | null
+          created_at: string | null
+          development_paid: number | null
+          family_id: string | null
+          fpf_paid: number | null
+          full_name: string | null
+          id: string | null
+          notes: string | null
+          phone: string | null
+          profile_id: string | null
+          status: Database["public"]["Enums"]["member_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          advance_subscription_paid?: number | null
+          branch_id?: string | null
+          category?: Database["public"]["Enums"]["member_category"] | null
+          created_at?: string | null
+          development_paid?: number | null
+          family_id?: string | null
+          fpf_paid?: number | null
+          full_name?: string | null
+          id?: string | null
+          notes?: string | null
+          phone?: string | null
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["member_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          advance_subscription_paid?: number | null
+          branch_id?: string | null
+          category?: Database["public"]["Enums"]["member_category"] | null
+          created_at?: string | null
+          development_paid?: number | null
+          family_id?: string | null
+          fpf_paid?: number | null
+          full_name?: string | null
+          id?: string | null
+          notes?: string | null
+          phone?: string | null
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["member_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_records_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_records_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       current_user_family_id: { Args: never; Returns: string }
