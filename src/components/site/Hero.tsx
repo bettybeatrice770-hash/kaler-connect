@@ -11,7 +11,9 @@ export const Hero = () => {
         width={1920}
         height={1088}
         fetchPriority="high"
+        {...({ fetchpriority: "high" } as any)}
         decoding="async"
+        loading="eager"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-hero" />
