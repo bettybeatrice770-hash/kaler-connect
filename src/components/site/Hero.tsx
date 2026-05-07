@@ -25,7 +25,7 @@ export const Hero = () => {
             Registered 2009 · Society of Kenya
           </span>
           <h1 className="mt-6 text-4xl sm:text-5xl lg:text-7xl font-display font-semibold leading-[1.05]">
-            Standing Together for <span className="text-accent-glow">Kalerians</span> in Nairobi.
+            Kaler Welfare Association: Standing Together for <span className="text-accent-glow">Kalerians</span> in Nairobi.
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-primary-foreground/85 max-w-2xl leading-relaxed">
             Economic empowerment for better health and progress — eradicating poverty through
