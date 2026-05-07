@@ -55,6 +55,18 @@ const AdminRoles = () => {
 
   const assign = async () => {
     if (!picked) return toast({ title: "Pick a member first", variant: "destructive" });
+
+    // Check if user already has an administrative role
+    const adminRoles = ["admin", "officer", "branch_rep"];
+    const existing = roles.find((r) => r.user_id === picked.id && adminRoles.includes(r.role));
+    if (existing) {
+      return toast({
+        title: "User already has a role",
+        description: `This member is already a ${existing.role}. Remove that role first.`,
+        variant: "destructive",
+      });
+    }
+
     if (pickedRole === "admin" && adminCount >= 4) return toast({ title: "Max 4 admins allowed", variant: "destructive" });
     if (pickedRole === "branch_rep" && !pickedBranch) return toast({ title: "Pick a branch", variant: "destructive" });
     setBusy(true);

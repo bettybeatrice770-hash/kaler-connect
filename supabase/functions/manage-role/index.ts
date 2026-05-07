@@ -29,6 +29,21 @@ Deno.serve(async (req) => {
     if (!target_user_id) return json({ error: "target_user_id required" }, 400);
 
     if (action === "assign") {
+      // Check for existing administrative roles to ensure one role at a time
+      const adminRoles = ["admin", "officer", "branch_rep"];
+      if (adminRoles.includes(role)) {
+        const { data: existingRoles } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", target_user_id)
+          .in("role", adminRoles);
+
+        const otherRole = existingRoles?.find(r => r.role !== role);
+        if (otherRole) {
+          return json({ error: `User already has an administrative role (${otherRole.role}). Remove it first.` }, 400);
+        }
+      }
+
       if (role === "admin") {
         const { count } = await admin.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
         if ((count ?? 0) >= MAX_ADMINS) return json({ error: `Maximum ${MAX_ADMINS} admins allowed` }, 400);
