@@ -1,7 +1,7 @@
-import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 
 export const downloadMembersExcel = async (branchId: string | null, fileBase: string) => {
+  const XLSX = await import("xlsx");
   let q = supabase.from("member_records").select("*").order("full_name");
   if (branchId) q = q.eq("branch_id", branchId);
   const [{ data: members, error: mErr }, { data: branches }] = await Promise.all([
