@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
       category: rec.category,
       status: rec.status,
       family_id: rec.family_id,
+      must_change_password: true,
     });
     if (profErr) {
       await admin.auth.admin.deleteUser(newUserId);

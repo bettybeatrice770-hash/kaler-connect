@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download } from "lucide-react";
+import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadMembersExcel } from "@/lib/exportExcel";
 import { toast } from "@/hooks/use-toast";
@@ -113,6 +113,46 @@ const AdminOverview = () => {
     setExporting(false);
   };
 
+  // ---- Password reset requests (admins only) ----
+  type ResetRequest = { id: string; full_name: string; phone: string; reset_requested_at: string | null };
+  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
+  const [approving, setApproving] = useState<string | null>(null);
+
+  const loadResetRequests = useCallback(async () => {
+    if (!isAdmin) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, phone, reset_requested_at")
+      .eq("reset_requested", true)
+      .order("reset_requested_at", { ascending: false });
+    setResetRequests((data as ResetRequest[]) || []);
+  }, [isAdmin]);
+
+  useEffect(() => { loadResetRequests(); }, [loadResetRequests]);
+
+  const approveReset = async (profileId: string, fullName: string) => {
+    setApproving(profileId);
+    const { data: mr } = await supabase.from("member_records").select("id").eq("profile_id", profileId).maybeSingle();
+    if (!mr?.id) {
+      setApproving(null);
+      toast({ title: "No linked member record", description: "Cannot reset this account from here.", variant: "destructive" });
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id } });
+    setApproving(null);
+    if (error || (data as any)?.error) {
+      toast({ title: "Could not reset", description: (data as any)?.error || error?.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: `Temporary password for ${fullName}`,
+      description: `${(data as any).temp_password} — share this with the member; they must change it on next login.`,
+    });
+    loadResetRequests();
+  };
+  // -------------------------------------------------
+
+
   if (loading) return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div></PortalLayout>;
 
   return (
@@ -180,6 +220,38 @@ const AdminOverview = () => {
             <p className="text-xs text-muted-foreground">Advance subscription savings on file: <b>Ksh {advTotal.toLocaleString()}</b></p>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="border-accent/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-accent" /> Password reset requests</CardTitle>
+              <CardDescription>
+                Verify each member offline (e.g. by phone) before approving. Approval issues a temporary password that the member must change at next login.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resetRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No pending requests.</p>
+              ) : (
+                <ul className="divide-y">
+                  {resetRequests.map((r) => (
+                    <li key={r.id} className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="font-medium text-primary">{r.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{r.phone}{r.reset_requested_at ? ` · requested ${new Date(r.reset_requested_at).toLocaleString()}` : ""}</p>
+                      </div>
+                      <Button size="sm" variant="hero" disabled={approving === r.id} onClick={() => approveReset(r.id, r.full_name)}>
+                        {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+
 
         <Card>
           <CardHeader>
