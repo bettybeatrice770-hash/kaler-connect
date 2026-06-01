@@ -11,6 +11,8 @@ type AuthContextType = {
   isBranchRep: boolean;
   isStaff: boolean;
   branchAdminIds: string[];
+  mustChangePassword: boolean;
+  refreshProfileFlags: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -23,6 +25,8 @@ const AuthContext = createContext<AuthContextType>({
   isBranchRep: false,
   isStaff: false,
   branchAdminIds: [],
+  mustChangePassword: false,
+  refreshProfileFlags: async () => {},
   signOut: async () => {},
 });
 
@@ -32,14 +36,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
   const [branchAdminIds, setBranchAdminIds] = useState<string[]>([]);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  const loadRoles = async (uid: string) => {
-    const [{ data: r }, { data: ba }] = await Promise.all([
+  const loadAll = async (uid: string) => {
+    const [{ data: r }, { data: ba }, { data: prof }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("branch_admins").select("branch_id").eq("user_id", uid),
+      supabase.from("profiles").select("must_change_password").eq("id", uid).maybeSingle(),
     ]);
     setRoles((r || []).map((x: any) => x.role));
     setBranchAdminIds((ba || []).map((x: any) => x.branch_id));
+    setMustChangePassword(!!(prof as any)?.must_change_password);
+  };
+
+  const refreshProfileFlags = async () => {
+    if (!user) return;
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("must_change_password")
+      .eq("id", user.id)
+      .maybeSingle();
+    setMustChangePassword(!!(prof as any)?.must_change_password);
   };
 
   useEffect(() => {
@@ -47,16 +64,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
-        setTimeout(() => loadRoles(newSession.user.id), 0);
+        setTimeout(() => loadAll(newSession.user.id), 0);
       } else {
         setRoles([]);
+        setBranchAdminIds([]);
+        setMustChangePassword(false);
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: existing } }) => {
       setSession(existing);
       setUser(existing?.user ?? null);
-      if (existing?.user) loadRoles(existing.user.id);
+      if (existing?.user) loadAll(existing.user.id);
       setLoading(false);
     });
 
@@ -69,6 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setRoles([]);
     setBranchAdminIds([]);
+    setMustChangePassword(false);
   };
 
   const isAdmin = roles.includes("admin");
@@ -77,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isStaff = isAdmin || isOfficer || isBranchRep;
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, isAdmin, isOfficer, isBranchRep, isStaff, branchAdminIds, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, isAdmin, isOfficer, isBranchRep, isStaff, branchAdminIds, mustChangePassword, refreshProfileFlags, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
 export const RequireAuth = ({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) => {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, mustChangePassword } = useAuth();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center">
@@ -13,6 +14,9 @@ export const RequireAuth = ({ children, adminOnly = false }: { children: ReactNo
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  if (mustChangePassword && location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
   if (adminOnly && !isAdmin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };
