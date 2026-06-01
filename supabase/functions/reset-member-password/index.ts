@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function genTempPassword() {
+  // Simple readable temp password, e.g. Kaler-4F7K
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return `Kaler-${s}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -21,15 +29,27 @@ Deno.serve(async (req) => {
     const { data: roleRow } = await admin.from("user_roles").select("id").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "Admins only" }, 403);
 
-    const { member_record_id, password } = await req.json();
-    if (!member_record_id || !password || password.length < 6) return json({ error: "member_record_id and password (>=6) required" }, 400);
+    const body = await req.json().catch(() => ({}));
+    const { member_record_id } = body;
+    let { password } = body;
+    if (!member_record_id) return json({ error: "member_record_id required" }, 400);
+    if (password && password.length < 6) return json({ error: "password must be >= 6 chars" }, 400);
+    if (!password) password = genTempPassword();
 
     const { data: rec } = await admin.from("member_records").select("profile_id").eq("id", member_record_id).maybeSingle();
     if (!rec?.profile_id) return json({ error: "Member has no login linked" }, 400);
 
     const { error: updErr } = await admin.auth.admin.updateUserById(rec.profile_id, { password });
     if (updErr) return json({ error: updErr.message }, 400);
-    return json({ success: true });
+
+    // Force change on next login and clear any pending reset request
+    await admin.from("profiles").update({
+      must_change_password: true,
+      reset_requested: false,
+      reset_requested_at: null,
+    }).eq("id", rec.profile_id);
+
+    return json({ success: true, temp_password: password });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
