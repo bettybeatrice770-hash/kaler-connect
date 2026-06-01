@@ -221,6 +221,38 @@ const AdminOverview = () => {
           </CardContent>
         </Card>
 
+        {isAdmin && (
+          <Card className="border-accent/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-accent" /> Password reset requests</CardTitle>
+              <CardDescription>
+                Verify each member offline (e.g. by phone) before approving. Approval issues a temporary password that the member must change at next login.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resetRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No pending requests.</p>
+              ) : (
+                <ul className="divide-y">
+                  {resetRequests.map((r) => (
+                    <li key={r.id} className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="font-medium text-primary">{r.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{r.phone}{r.reset_requested_at ? ` · requested ${new Date(r.reset_requested_at).toLocaleString()}` : ""}</p>
+                      </div>
+                      <Button size="sm" variant="hero" disabled={approving === r.id} onClick={() => approveReset(r.id, r.full_name)}>
+                        {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+
+
         <Card>
           <CardHeader>
             <CardTitle>Branches</CardTitle>
