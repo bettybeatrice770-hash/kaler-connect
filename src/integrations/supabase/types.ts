@@ -327,8 +327,11 @@ export type Database = {
           full_name: string
           id: string
           is_adult: boolean
+          must_change_password: boolean
           phone: string
           relationship: string | null
+          reset_requested: boolean
+          reset_requested_at: string | null
           status: Database["public"]["Enums"]["member_status"]
           updated_at: string
         }
@@ -343,8 +346,11 @@ export type Database = {
           full_name: string
           id: string
           is_adult?: boolean
+          must_change_password?: boolean
           phone: string
           relationship?: string | null
+          reset_requested?: boolean
+          reset_requested_at?: string | null
           status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
         }
@@ -359,8 +365,11 @@ export type Database = {
           full_name?: string
           id?: string
           is_adult?: boolean
+          must_change_password?: boolean
           phone?: string
           relationship?: string | null
+          reset_requested?: boolean
+          reset_requested_at?: string | null
           status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
         }
@@ -420,6 +429,10 @@ export type Database = {
         Returns: boolean
       }
       is_officer: { Args: { _uid: string }; Returns: boolean }
+      request_password_reset_by_phone: {
+        Args: { _phone: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "member" | "branch_rep" | "officer"
