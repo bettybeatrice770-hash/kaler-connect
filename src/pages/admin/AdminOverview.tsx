@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download } from "lucide-react";
+import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadMembersExcel } from "@/lib/exportExcel";
 import { toast } from "@/hooks/use-toast";
