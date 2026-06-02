@@ -1,18 +1,15 @@
 // Grants the calling user the 'admin' role IF no admin exists yet.
-// One-time bootstrap for the very first admin (Secretary).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
+import { logAudit } from "../_shared/audit.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const pre = handlePreflight(req);
+  if (pre) return pre;
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Not authenticated" }, 401);
+    if (!authHeader) return jsonResponse(req, { error: "Not authenticated" }, 401);
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -21,7 +18,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "Not authenticated" }, 401);
+    if (!user) return jsonResponse(req, { error: "Not authenticated" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -32,7 +29,7 @@ Deno.serve(async (req) => {
     if (cErr) throw cErr;
 
     if ((count ?? 0) > 0) {
-      return json({ error: "An admin already exists. Ask the existing admin to grant access." }, 403);
+      return jsonResponse(req, { error: "An admin already exists. Ask the existing admin to grant access." }, 403);
     }
 
     const { error: insErr } = await admin
@@ -40,15 +37,13 @@ Deno.serve(async (req) => {
       .insert({ user_id: user.id, role: "admin" });
     if (insErr) throw insErr;
 
-    return json({ success: true });
+    await logAudit(admin, {
+      actor_id: user.id, actor_label: user.email ?? null,
+      action: "admin.bootstrap", table_name: "user_roles", record_id: user.id,
+    });
+
+    return jsonResponse(req, { success: true });
   } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    return jsonResponse(req, { error: (e as Error).message }, 500);
   }
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}

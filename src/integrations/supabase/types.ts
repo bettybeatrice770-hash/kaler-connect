@@ -64,6 +64,39 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_label: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          record_id: string | null
+          table_name: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          record_id?: string | null
+          table_name?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          record_id?: string | null
+          table_name?: string | null
+        }
+        Relationships: []
+      }
       branch_admins: {
         Row: {
           branch_id: string
@@ -416,6 +449,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_password_reset_request: {
+        Args: { _profile_id: string }
+        Returns: boolean
+      }
       current_user_family_id: { Args: never; Returns: string }
       has_role: {
         Args: {

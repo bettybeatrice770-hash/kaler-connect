@@ -117,6 +117,8 @@ const AdminOverview = () => {
   type ResetRequest = { id: string; full_name: string; phone: string; reset_requested_at: string | null };
   const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
   const [approving, setApproving] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [pwFormat, setPwFormat] = useState<"year" | "mmdd">("year");
 
   const loadResetRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -138,7 +140,7 @@ const AdminOverview = () => {
       toast({ title: "No linked member record", description: "Cannot reset this account from here.", variant: "destructive" });
       return;
     }
-    const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id } });
+    const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id, format: pwFormat } });
     setApproving(null);
     if (error || (data as any)?.error) {
       toast({ title: "Could not reset", description: (data as any)?.error || error?.message, variant: "destructive" });
@@ -148,6 +150,19 @@ const AdminOverview = () => {
       title: `Temporary password for ${fullName}`,
       description: `${(data as any).temp_password} — share this with the member; they must change it on next login.`,
     });
+    loadResetRequests();
+  };
+
+  const cancelReset = async (profileId: string, fullName: string) => {
+    if (!confirm(`Cancel the password reset request from ${fullName}?`)) return;
+    setCancelling(profileId);
+    const { error } = await supabase.rpc("cancel_password_reset_request", { _profile_id: profileId });
+    setCancelling(null);
+    if (error) {
+      toast({ title: "Could not cancel", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Request cancelled" });
     loadResetRequests();
   };
   // -------------------------------------------------
@@ -226,10 +241,21 @@ const AdminOverview = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-accent" /> Password reset requests</CardTitle>
               <CardDescription>
-                Verify each member offline (e.g. by phone) before approving. Approval issues a temporary password that the member must change at next login.
+                Verify each member offline (e.g. by phone) before approving. Approval issues a simple temporary password that the member must change at next login.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">Temp password format:</span>
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input type="radio" checked={pwFormat === "year"} onChange={() => setPwFormat("year")} />
+                  <span>Kaler{new Date().getFullYear()}</span>
+                </label>
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input type="radio" checked={pwFormat === "mmdd"} onChange={() => setPwFormat("mmdd")} />
+                  <span>Kaler{String(new Date().getMonth() + 1).padStart(2, "0")}{String(new Date().getDate()).padStart(2, "0")}</span>
+                </label>
+              </div>
               {resetRequests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending requests.</p>
               ) : (
@@ -240,9 +266,14 @@ const AdminOverview = () => {
                         <p className="font-medium text-primary">{r.full_name}</p>
                         <p className="text-xs text-muted-foreground">{r.phone}{r.reset_requested_at ? ` · requested ${new Date(r.reset_requested_at).toLocaleString()}` : ""}</p>
                       </div>
-                      <Button size="sm" variant="hero" disabled={approving === r.id} onClick={() => approveReset(r.id, r.full_name)}>
-                        {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" disabled={cancelling === r.id || approving === r.id} onClick={() => cancelReset(r.id, r.full_name)}>
+                          {cancelling === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel"}
+                        </Button>
+                        <Button size="sm" variant="hero" disabled={approving === r.id || cancelling === r.id} onClick={() => approveReset(r.id, r.full_name)}>
+                          {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -306,6 +337,12 @@ const AdminOverview = () => {
               <p className="font-medium text-primary">Families &amp; merge</p>
               <p className="text-xs text-muted-foreground">Group spouses into one family</p>
             </Link>
+            {isAdmin && (
+              <Link to="/admin/audit" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
+                <p className="font-medium text-primary">Audit log</p>
+                <p className="text-xs text-muted-foreground">Who changed what, when</p>
+              </Link>
+            )}
             <Link to="/admin/roles" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
               <p className="font-medium text-primary flex items-center gap-2"><Shield className="h-4 w-4" /> Roles &amp; permissions</p>
               <p className="text-xs text-muted-foreground">Admins, officers, branch reps</p>
