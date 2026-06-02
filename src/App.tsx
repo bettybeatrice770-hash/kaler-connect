@@ -20,6 +20,7 @@ const AdminBootstrap = lazy(() => import("./pages/admin/AdminBootstrap.tsx"));
 const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
 const AdminImport = lazy(() => import("./pages/admin/AdminImport.tsx"));
 const AdminRoles = lazy(() => import("./pages/admin/AdminRoles.tsx"));
+const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog.tsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
               <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
+              <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
               <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
               <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
               <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />

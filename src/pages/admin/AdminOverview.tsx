@@ -117,6 +117,8 @@ const AdminOverview = () => {
   type ResetRequest = { id: string; full_name: string; phone: string; reset_requested_at: string | null };
   const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
   const [approving, setApproving] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [pwFormat, setPwFormat] = useState<"year" | "mmdd">("year");
 
   const loadResetRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -138,7 +140,7 @@ const AdminOverview = () => {
       toast({ title: "No linked member record", description: "Cannot reset this account from here.", variant: "destructive" });
       return;
     }
-    const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id } });
+    const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id, format: pwFormat } });
     setApproving(null);
     if (error || (data as any)?.error) {
       toast({ title: "Could not reset", description: (data as any)?.error || error?.message, variant: "destructive" });
@@ -148,6 +150,19 @@ const AdminOverview = () => {
       title: `Temporary password for ${fullName}`,
       description: `${(data as any).temp_password} — share this with the member; they must change it on next login.`,
     });
+    loadResetRequests();
+  };
+
+  const cancelReset = async (profileId: string, fullName: string) => {
+    if (!confirm(`Cancel the password reset request from ${fullName}?`)) return;
+    setCancelling(profileId);
+    const { error } = await supabase.rpc("cancel_password_reset_request", { _profile_id: profileId });
+    setCancelling(null);
+    if (error) {
+      toast({ title: "Could not cancel", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Request cancelled" });
     loadResetRequests();
   };
   // -------------------------------------------------
