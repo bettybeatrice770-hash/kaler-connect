@@ -241,10 +241,21 @@ const AdminOverview = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-accent" /> Password reset requests</CardTitle>
               <CardDescription>
-                Verify each member offline (e.g. by phone) before approving. Approval issues a temporary password that the member must change at next login.
+                Verify each member offline (e.g. by phone) before approving. Approval issues a simple temporary password that the member must change at next login.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">Temp password format:</span>
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input type="radio" checked={pwFormat === "year"} onChange={() => setPwFormat("year")} />
+                  <span>Kaler{new Date().getFullYear()}</span>
+                </label>
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input type="radio" checked={pwFormat === "mmdd"} onChange={() => setPwFormat("mmdd")} />
+                  <span>Kaler{String(new Date().getMonth() + 1).padStart(2, "0")}{String(new Date().getDate()).padStart(2, "0")}</span>
+                </label>
+              </div>
               {resetRequests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending requests.</p>
               ) : (
@@ -255,9 +266,14 @@ const AdminOverview = () => {
                         <p className="font-medium text-primary">{r.full_name}</p>
                         <p className="text-xs text-muted-foreground">{r.phone}{r.reset_requested_at ? ` · requested ${new Date(r.reset_requested_at).toLocaleString()}` : ""}</p>
                       </div>
-                      <Button size="sm" variant="hero" disabled={approving === r.id} onClick={() => approveReset(r.id, r.full_name)}>
-                        {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" disabled={cancelling === r.id || approving === r.id} onClick={() => cancelReset(r.id, r.full_name)}>
+                          {cancelling === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel"}
+                        </Button>
+                        <Button size="sm" variant="hero" disabled={approving === r.id || cancelling === r.id} onClick={() => approveReset(r.id, r.full_name)}>
+                          {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
