@@ -337,6 +337,12 @@ const AdminOverview = () => {
               <p className="font-medium text-primary">Families &amp; merge</p>
               <p className="text-xs text-muted-foreground">Group spouses into one family</p>
             </Link>
+            {isAdmin && (
+              <Link to="/admin/audit" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
+                <p className="font-medium text-primary">Audit log</p>
+                <p className="text-xs text-muted-foreground">Who changed what, when</p>
+              </Link>
+            )}
             <Link to="/admin/roles" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
               <p className="font-medium text-primary flex items-center gap-2"><Shield className="h-4 w-4" /> Roles &amp; permissions</p>
               <p className="text-xs text-muted-foreground">Admins, officers, branch reps</p>
