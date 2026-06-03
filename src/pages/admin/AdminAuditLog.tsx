@@ -68,23 +68,35 @@ const AdminAuditLog = () => {
           </CardHeader>
           <CardContent className="divide-y">
             {entries.length === 0 && <p className="text-sm text-muted-foreground py-3">No audit entries yet.</p>}
-            {entries.map((e) => (
-              <div key={e.id} className="py-3 text-sm space-y-1">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{e.action}</Badge>
-                    {e.table_name && <span className="text-xs text-muted-foreground">{e.table_name}{e.record_id ? ` · ${e.record_id.slice(0, 8)}` : ""}</span>}
+            {entries.map((e) => {
+              const d: any = e.details || {};
+              const newRow = d.new || {};
+              const oldRow = d.old || {};
+              const affectedName =
+                d.member_name || d.family_name || d.full_name ||
+                newRow.full_name || oldRow.full_name ||
+                newRow.family_name || oldRow.family_name ||
+                newRow.funeral_name || oldRow.funeral_name ||
+                newRow.name || oldRow.name || null;
+              return (
+                <div key={e.id} className="py-3 text-sm space-y-1">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary">{e.action}</Badge>
+                      {affectedName && <span className="text-sm font-medium">{affectedName}</span>}
+                      {e.table_name && <span className="text-xs text-muted-foreground">{e.table_name}{e.record_id ? ` · ${e.record_id.slice(0, 8)}` : ""}</span>}
+                    </div>
+                    <span className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString()}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString()}</span>
+                  <p className="text-xs text-muted-foreground">
+                    by {e.actor_id ? (actors[e.actor_id] || e.actor_label || e.actor_id.slice(0, 8)) : "system"}
+                  </p>
+                  {e.details && (
+                    <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-40">{JSON.stringify(e.details, null, 2)}</pre>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  by {e.actor_id ? (actors[e.actor_id] || e.actor_label || e.actor_id.slice(0, 8)) : "system"}
-                </p>
-                {e.details && (
-                  <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-40">{JSON.stringify(e.details, null, 2)}</pre>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>
