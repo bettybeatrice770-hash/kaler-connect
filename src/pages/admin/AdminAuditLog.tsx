@@ -18,7 +18,7 @@ type AuditEntry = {
   created_at: string;
 };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 2000;
 
 const AdminAuditLog = () => {
   const [loading, setLoading] = useState(true);
