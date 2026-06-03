@@ -24,6 +24,9 @@ const AdminAuditLog = () => {
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [actors, setActors] = useState<Record<string, string>>({});
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [familyNames, setFamilyNames] = useState<Record<string, string>>({});
+  const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -35,13 +38,44 @@ const AdminAuditLog = () => {
       const rows = (data as AuditEntry[]) || [];
       setEntries(rows);
 
-      const ids = Array.from(new Set(rows.map(r => r.actor_id).filter(Boolean) as string[]));
-      if (ids.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-        const map: Record<string, string> = {};
-        for (const p of (profs as any[]) || []) map[p.id] = p.full_name;
-        setActors(map);
+      const actorIds = new Set<string>();
+      const memberIds = new Set<string>();
+      const familyIds = new Set<string>();
+      const profileIds = new Set<string>();
+
+      for (const r of rows) {
+        if (r.actor_id) actorIds.add(r.actor_id);
+        const d: any = r.details || {};
+        const newRow = d.new || {};
+        const oldRow = d.old || {};
+        const mId = newRow.member_record_id || oldRow.member_record_id || d.member_record_id || (r.table_name === "member_records" ? r.record_id : null);
+        const fId = newRow.family_id || oldRow.family_id || d.family_id || (r.table_name === "families" ? r.record_id : null);
+        const pId = newRow.profile_id || oldRow.profile_id || d.profile_id || (r.table_name === "profiles" ? r.record_id : null);
+        if (mId) memberIds.add(mId);
+        if (fId) familyIds.add(fId);
+        if (pId) profileIds.add(pId);
       }
+
+      const [profsRes, membersRes, familiesRes, profileLookupRes] = await Promise.all([
+        actorIds.size ? supabase.from("profiles").select("id, full_name").in("id", Array.from(actorIds)) : Promise.resolve({ data: [] as any[] }),
+        memberIds.size ? supabase.from("member_records").select("id, full_name").in("id", Array.from(memberIds)) : Promise.resolve({ data: [] as any[] }),
+        familyIds.size ? supabase.from("families").select("id, family_name").in("id", Array.from(familyIds)) : Promise.resolve({ data: [] as any[] }),
+        profileIds.size ? supabase.from("profiles").select("id, full_name").in("id", Array.from(profileIds)) : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const aMap: Record<string, string> = {};
+      for (const p of (profsRes.data as any[]) || []) aMap[p.id] = p.full_name;
+      setActors(aMap);
+      const mMap: Record<string, string> = {};
+      for (const m of (membersRes.data as any[]) || []) mMap[m.id] = m.full_name;
+      setMemberNames(mMap);
+      const fMap: Record<string, string> = {};
+      for (const f of (familiesRes.data as any[]) || []) fMap[f.id] = f.family_name;
+      setFamilyNames(fMap);
+      const pMap: Record<string, string> = {};
+      for (const p of (profileLookupRes.data as any[]) || []) pMap[p.id] = p.full_name;
+      setProfileNames(pMap);
+
       setLoading(false);
     })();
   }, []);
@@ -72,12 +106,19 @@ const AdminAuditLog = () => {
               const d: any = e.details || {};
               const newRow = d.new || {};
               const oldRow = d.old || {};
+              const mId = newRow.member_record_id || oldRow.member_record_id || d.member_record_id || (e.table_name === "member_records" ? e.record_id : null);
+              const fId = newRow.family_id || oldRow.family_id || d.family_id || (e.table_name === "families" ? e.record_id : null);
+              const pId = newRow.profile_id || oldRow.profile_id || d.profile_id || (e.table_name === "profiles" ? e.record_id : null);
               const affectedName =
                 d.member_name || d.family_name || d.full_name ||
                 newRow.full_name || oldRow.full_name ||
                 newRow.family_name || oldRow.family_name ||
                 newRow.funeral_name || oldRow.funeral_name ||
-                newRow.name || oldRow.name || null;
+                newRow.name || oldRow.name ||
+                (mId && memberNames[mId]) ||
+                (pId && profileNames[pId]) ||
+                (fId && familyNames[fId]) ||
+                null;
               return (
                 <div key={e.id} className="py-3 text-sm space-y-1">
                   <div className="flex items-center justify-between flex-wrap gap-2">
