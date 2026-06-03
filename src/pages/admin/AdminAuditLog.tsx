@@ -57,7 +57,7 @@ const AdminAuditLog = () => {
           <Button asChild variant="ghost" size="sm"><Link to="/admin"><ChevronLeft className="h-4 w-4" /> Back</Link></Button>
           <div>
             <h1 className="font-display text-3xl text-primary flex items-center gap-2"><ShieldCheck className="h-6 w-6" /> Audit log</h1>
-            <p className="text-sm text-muted-foreground">Most recent {PAGE_SIZE} admin actions. View-only.</p>
+            <p className="text-sm text-muted-foreground">Most recent {PAGE_SIZE.toLocaleString()} admin actions. View-only.</p>
           </div>
         </div>
 
