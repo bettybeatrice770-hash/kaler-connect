@@ -106,12 +106,19 @@ const AdminAuditLog = () => {
               const d: any = e.details || {};
               const newRow = d.new || {};
               const oldRow = d.old || {};
+              const mId = newRow.member_record_id || oldRow.member_record_id || d.member_record_id || (e.table_name === "member_records" ? e.record_id : null);
+              const fId = newRow.family_id || oldRow.family_id || d.family_id || (e.table_name === "families" ? e.record_id : null);
+              const pId = newRow.profile_id || oldRow.profile_id || d.profile_id || (e.table_name === "profiles" ? e.record_id : null);
               const affectedName =
                 d.member_name || d.family_name || d.full_name ||
                 newRow.full_name || oldRow.full_name ||
                 newRow.family_name || oldRow.family_name ||
                 newRow.funeral_name || oldRow.funeral_name ||
-                newRow.name || oldRow.name || null;
+                newRow.name || oldRow.name ||
+                (mId && memberNames[mId]) ||
+                (pId && profileNames[pId]) ||
+                (fId && familyNames[fId]) ||
+                null;
               return (
                 <div key={e.id} className="py-3 text-sm space-y-1">
                   <div className="flex items-center justify-between flex-wrap gap-2">
