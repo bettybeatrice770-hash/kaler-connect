@@ -72,11 +72,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: existing } }) => {
-      setSession(existing);
-      setUser(existing?.user ?? null);
-      if (existing?.user) loadAll(existing.user.id);
-      setLoading(false);
+    supabase.auth.getSession().then(async ({ data: { session: existing } }) => {
+     setSession(existing);
+     setUser(existing?.user ?? null);
+     if (existing?.user) await loadAll(existing.user.id);
+     setLoading(false);
     });
 
     return () => subscription.unsubscribe();
