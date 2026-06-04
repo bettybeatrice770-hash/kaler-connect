@@ -20,10 +20,15 @@ export const Hero = () => {
       <div className="absolute inset-0 bg-gradient-hero" />
       <div className="container relative z-10 py-32">
         <div className="max-w-3xl text-primary-foreground animate-fade-up">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/40 bg-accent/10 text-accent-glow text-xs font-semibold tracking-widest uppercase">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Registered 2009 · Society of Kenya
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/40 bg-accent/10 text-accent-glow text-xs font-semibold tracking-widest uppercase">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Registered 2009 · Society of Kenya
+            </span>
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent bg-accent text-accent-foreground text-xs font-bold tracking-widest uppercase shadow-gold">
+              Founded in 1988
+            </span>
+          </div>
           <h1 className="mt-6 text-4xl sm:text-5xl lg:text-7xl font-display font-semibold leading-[1.05]">
             Kaler Welfare Association: Standing Together for <span className="text-accent-glow">Kalerians</span> in Nairobi.
           </h1>
