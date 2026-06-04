@@ -7,7 +7,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { RequireAuth } from "@/components/portal/RequireAuth";
 import { RequireAdmin } from "@/components/portal/RequireAdmin";
+import { Loader2 } from "lucide-react";
 import Index from "./pages/Index.tsx";
+
+const RouteFallback = () => (
+  <div className="min-h-screen grid place-items-center bg-background">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
 
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
