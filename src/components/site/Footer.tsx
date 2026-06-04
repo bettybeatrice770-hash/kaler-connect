@@ -27,6 +27,14 @@ export const Footer = () => {
           </ul>
         </div>
         <div>
+          <p className="font-semibold text-primary-foreground mb-4">Contact Secretary</p>
+          <ul className="space-y-2 text-sm">
+            <li>Joseph Oluoch</li>
+            <li><a href="tel:+254701594936" className="hover:text-accent-glow transition-colors">0701 594 936</a></li>
+            <li className="break-words"><a href="mailto:kalernairobiwelfareassociation@gmail.com" className="hover:text-accent-glow transition-colors">kalernairobiwelfareassociation@gmail.com</a></li>
+          </ul>
+        </div>
+        <div>
           <p className="font-semibold text-primary-foreground mb-4">Important Dates</p>
           <ul className="space-y-2 text-sm">
             <li>Renewal: Feb 28 yearly</li>

@@ -33,9 +33,9 @@ export const Hero = () => {
             Kaler Welfare Association: Standing Together for <span className="text-accent-glow">Kalerians</span> in Nairobi.
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-primary-foreground/85 max-w-2xl leading-relaxed">
-            Economic empowerment for better health and progress — eradicating poverty through
-            community empowerment, supporting families during bereavement, and building shared
-            prosperity for Kalerians in Nairobi.
+            The Kaler Nairobi Welfare Association provides trusted bereavement support Nairobi
+            families rely on — empowering the Kalerians community through shared progress,
+            economic upliftment, and standing with every family during loss.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <Button variant="hero" size="lg" asChild>
