@@ -18,7 +18,7 @@ export const About = () => {
         <div>
           <p className="text-sm font-semibold tracking-widest uppercase text-accent">Our Story</p>
           <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-display font-semibold text-primary leading-tight">
-            A history of unity and community support.
+            The Kalerians community: a history of unity and bereavement support Nairobi trusts.
           </h2>
           <div className="mt-6 space-y-5 text-foreground/80 leading-relaxed">
             <p>

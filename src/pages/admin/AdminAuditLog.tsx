@@ -24,7 +24,7 @@ const AdminAuditLog = () => {
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [actors, setActors] = useState<Record<string, string>>({});
-  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [memberInfo, setMemberInfo] = useState<Record<string, { name: string; branch: string | null }>>({});
   const [familyNames, setFamilyNames] = useState<Record<string, string>>({});
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
 
@@ -58,7 +58,7 @@ const AdminAuditLog = () => {
 
       const [profsRes, membersRes, familiesRes, profileLookupRes] = await Promise.all([
         actorIds.size ? supabase.from("profiles").select("id, full_name").in("id", Array.from(actorIds)) : Promise.resolve({ data: [] as any[] }),
-        memberIds.size ? supabase.from("member_records").select("id, full_name").in("id", Array.from(memberIds)) : Promise.resolve({ data: [] as any[] }),
+        memberIds.size ? supabase.from("member_records").select("id, full_name, branch_id, branches(name)").in("id", Array.from(memberIds)) : Promise.resolve({ data: [] as any[] }),
         familyIds.size ? supabase.from("families").select("id, family_name").in("id", Array.from(familyIds)) : Promise.resolve({ data: [] as any[] }),
         profileIds.size ? supabase.from("profiles").select("id, full_name").in("id", Array.from(profileIds)) : Promise.resolve({ data: [] as any[] }),
       ]);
@@ -66,9 +66,9 @@ const AdminAuditLog = () => {
       const aMap: Record<string, string> = {};
       for (const p of (profsRes.data as any[]) || []) aMap[p.id] = p.full_name;
       setActors(aMap);
-      const mMap: Record<string, string> = {};
-      for (const m of (membersRes.data as any[]) || []) mMap[m.id] = m.full_name;
-      setMemberNames(mMap);
+      const mMap: Record<string, { name: string; branch: string | null }> = {};
+      for (const m of (membersRes.data as any[]) || []) mMap[m.id] = { name: m.full_name, branch: m.branches?.name ?? null };
+      setMemberInfo(mMap);
       const fMap: Record<string, string> = {};
       for (const f of (familiesRes.data as any[]) || []) fMap[f.id] = f.family_name;
       setFamilyNames(fMap);
@@ -79,6 +79,25 @@ const AdminAuditLog = () => {
       setLoading(false);
     })();
   }, []);
+
+  const SKIP_FIELDS = new Set(["id", "created_at", "updated_at"]);
+  const formatVal = (v: any) => {
+    if (v === null || v === undefined) return "—";
+    if (typeof v === "boolean") return v ? "yes" : "no";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  };
+  const buildDiff = (oldRow: any, newRow: any) => {
+    const keys = new Set([...Object.keys(oldRow || {}), ...Object.keys(newRow || {})]);
+    const diffs: { key: string; from: any; to: any }[] = [];
+    for (const k of keys) {
+      if (SKIP_FIELDS.has(k)) continue;
+      const a = oldRow?.[k];
+      const b = newRow?.[k];
+      if (JSON.stringify(a) !== JSON.stringify(b)) diffs.push({ key: k, from: a, to: b });
+    }
+    return diffs;
+  };
 
   if (loading) {
     return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div></PortalLayout>;
@@ -109,22 +128,29 @@ const AdminAuditLog = () => {
               const mId = newRow.member_record_id || oldRow.member_record_id || d.member_record_id || (e.table_name === "member_records" ? e.record_id : null);
               const fId = newRow.family_id || oldRow.family_id || d.family_id || (e.table_name === "families" ? e.record_id : null);
               const pId = newRow.profile_id || oldRow.profile_id || d.profile_id || (e.table_name === "profiles" ? e.record_id : null);
-              const affectedName =
+              const member = mId ? memberInfo[mId] : null;
+              const fallbackName =
                 d.member_name || d.family_name || d.full_name ||
                 newRow.full_name || oldRow.full_name ||
                 newRow.family_name || oldRow.family_name ||
                 newRow.funeral_name || oldRow.funeral_name ||
                 newRow.name || oldRow.name ||
-                (mId && memberNames[mId]) ||
                 (pId && profileNames[pId]) ||
                 (fId && familyNames[fId]) ||
                 null;
+              const headerName = member?.name || fallbackName;
+              const headerBranch = member?.branch || null;
+              const diffs = buildDiff(oldRow, newRow);
               return (
-                <div key={e.id} className="py-3 text-sm space-y-1">
+                <div key={e.id} className="py-4 text-sm space-y-2">
+                  {(headerName || headerBranch) && (
+                    <p className="text-sm font-semibold text-primary">
+                      Name: {headerName || "—"} | Branch: {headerBranch || "—"}
+                    </p>
+                  )}
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary">{e.action}</Badge>
-                      {affectedName && <span className="text-sm font-medium">{affectedName}</span>}
                       {e.table_name && <span className="text-xs text-muted-foreground">{e.table_name}{e.record_id ? ` · ${e.record_id.slice(0, 8)}` : ""}</span>}
                     </div>
                     <span className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString()}</span>
@@ -132,8 +158,23 @@ const AdminAuditLog = () => {
                   <p className="text-xs text-muted-foreground">
                     by {e.actor_id ? (actors[e.actor_id] || e.actor_label || e.actor_id.slice(0, 8)) : "system"}
                   </p>
-                  {e.details && (
-                    <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-40">{JSON.stringify(e.details, null, 2)}</pre>
+                  {diffs.length > 0 && (
+                    <ul className="text-xs bg-muted/40 rounded p-2 space-y-1">
+                      {diffs.map((diff) => (
+                        <li key={diff.key}>
+                          <span className="font-medium">{diff.key}:</span>{" "}
+                          <span className="text-muted-foreground line-through">{formatVal(diff.from)}</span>{" "}
+                          <span>→</span>{" "}
+                          <span className="text-primary font-medium">{formatVal(diff.to)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {diffs.length === 0 && e.details && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground">Raw details</summary>
+                      <pre className="bg-muted/50 rounded p-2 overflow-x-auto max-h-40 mt-1">{JSON.stringify(e.details, null, 2)}</pre>
+                    </details>
                   )}
                 </div>
               );
