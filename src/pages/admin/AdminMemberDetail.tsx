@@ -247,11 +247,11 @@ const AdminMemberDetail = () => {
             </div>
             <div className="space-y-1 sm:col-span-2"><Label>Admin notes (back-end only)</Label>
               <Textarea rows={3} value={form.admin_notes || ""} onChange={(e) => setForm({ ...form, admin_notes: e.target.value })} placeholder="Important notes only visible to admins..." /></div>
-            <div className="sm:col-span-2 flex justify-between gap-3">
-              <Button variant="destructive" onClick={deleteMember} disabled={busy}>
+            <div className="sm:col-span-2 flex flex-col sm:flex-row justify-between gap-3">
+              <Button variant="destructive" onClick={deleteMember} disabled={busy} className="w-full sm:w-auto">
                 <UserX className="h-4 w-4" /> Delete member
               </Button>
-              <Button onClick={saveMember} disabled={busy} variant="hero">
+              <Button onClick={saveMember} disabled={busy} variant="hero" className="w-full sm:w-auto">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save changes</>}
               </Button>
             </div>
