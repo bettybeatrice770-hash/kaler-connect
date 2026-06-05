@@ -1,4 +1,9 @@
 User-agent: *
-Allow: /
+
+Allow: /$
+
+Allow: /index.html
+
+Disallow: /dashboard
 
 Sitemap: https://knwa.netlify.app/sitemap.xml

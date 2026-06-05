@@ -135,10 +135,10 @@ const AdminEvents = () => {
                   <SelectItem value="dormant">Dormant only</SelectItem>
                 </SelectContent>
               </Select></div>
-            <div className="sm:col-span-2 flex items-center justify-between gap-3 border-t pt-4">
-              <Button variant="outline" onClick={countTargets}>Preview targets</Button>
+            <div className="sm:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t pt-4">
+              <Button variant="outline" onClick={countTargets} className="w-full sm:w-auto">Preview targets</Button>
               {preview !== null && <p className="text-sm">Will create <b>{preview}</b> arrears entries.</p>}
-              <Button onClick={apply} disabled={busy} variant="hero">
+              <Button onClick={apply} disabled={busy} variant="hero" className="w-full sm:w-auto">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply event"}
               </Button>
             </div>

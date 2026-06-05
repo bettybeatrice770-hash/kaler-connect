@@ -173,7 +173,7 @@ const AdminFamilies = () => {
               <CardDescription>Select 2+ members below, name the family, then merge.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1 flex-1 min-w-[220px]">
+              <div className="space-y-1 flex-1 min-w-0">
                 <Label>Family name</Label>
                 <Input value={familyName} onChange={e => setFamilyName(e.target.value)} placeholder="e.g. Elijah Orwa Family" />
               </div>

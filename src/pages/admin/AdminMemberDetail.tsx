@@ -247,11 +247,11 @@ const AdminMemberDetail = () => {
             </div>
             <div className="space-y-1 sm:col-span-2"><Label>Admin notes (back-end only)</Label>
               <Textarea rows={3} value={form.admin_notes || ""} onChange={(e) => setForm({ ...form, admin_notes: e.target.value })} placeholder="Important notes only visible to admins..." /></div>
-            <div className="sm:col-span-2 flex justify-between gap-3">
-              <Button variant="destructive" onClick={deleteMember} disabled={busy}>
+            <div className="sm:col-span-2 flex flex-col sm:flex-row justify-between gap-3">
+              <Button variant="destructive" onClick={deleteMember} disabled={busy} className="w-full sm:w-auto">
                 <UserX className="h-4 w-4" /> Delete member
               </Button>
-              <Button onClick={saveMember} disabled={busy} variant="hero">
+              <Button onClick={saveMember} disabled={busy} variant="hero" className="w-full sm:w-auto">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Save changes</>}
               </Button>
             </div>
@@ -267,7 +267,7 @@ const AdminMemberDetail = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1 flex-1 min-w-[220px]">
+              <div className="space-y-1 flex-1 min-w-0">
                 <Label htmlFor="pw">Initial password</Label>
                 <Input id="pw" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="e.g. kaler1234" />
               </div>
@@ -283,7 +283,7 @@ const AdminMemberDetail = () => {
               <CardDescription>Issue a new password for this member's existing login.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1 flex-1 min-w-[220px]">
+              <div className="space-y-1 flex-1 min-w-0">
                 <Label htmlFor="rpw">New password</Label>
                 <Input id="rpw" type="text" value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder="At least 6 characters" />
               </div>
@@ -299,7 +299,7 @@ const AdminMemberDetail = () => {
           <CardHeader><CardTitle className="text-base">Arrears & savings entries</CardTitle>
             <CardDescription>FEF / Development / Advance subscription are tracked as savings, not arrears.</CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
+          <CardContent className="w-full overflow-x-auto whitespace-nowrap p-0">
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Type</TableHead><TableHead>Year</TableHead><TableHead>Funeral / note</TableHead>

@@ -182,7 +182,7 @@ const Profile = () => {
                 <Textarea id="address" rows={2} value={profile.address || ""} onChange={(e) => setProfile({ ...profile, address: e.target.value })} />
               </div>
             </div>
-            <Button onClick={handleSave} disabled={saving} variant="hero">
+            <Button onClick={handleSave} disabled={saving} variant="hero" className="w-full sm:w-auto">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
             </Button>
           </CardContent>
@@ -195,30 +195,32 @@ const Profile = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {dependents.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Relationship</TableHead>
-                    <TableHead>Date of birth</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dependents.map((d) => (
-                    <TableRow key={d.id}>
-                      <TableCell>{d.full_name}</TableCell>
-                      <TableCell>{d.relationship || "—"}</TableCell>
-                      <TableCell>{d.date_of_birth || "—"}</TableCell>
-                      <TableCell>
-                        <Button size="icon" variant="ghost" onClick={() => removeDependent(d.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
+              <div className="w-full overflow-x-auto whitespace-nowrap">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Relationship</TableHead>
+                      <TableHead>Date of birth</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {dependents.map((d) => (
+                      <TableRow key={d.id}>
+                        <TableCell>{d.full_name}</TableCell>
+                        <TableCell>{d.relationship || "—"}</TableCell>
+                        <TableCell>{d.date_of_birth || "—"}</TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" onClick={() => removeDependent(d.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
             <div className="grid sm:grid-cols-4 gap-2 items-end pt-2 border-t">
               <div className="space-y-2 sm:col-span-2">
@@ -233,7 +235,7 @@ const Profile = () => {
                 <Label>Date of birth</Label>
                 <Input type="date" value={newDep.date_of_birth} onChange={(e) => setNewDep({ ...newDep, date_of_birth: e.target.value })} />
               </div>
-              <Button onClick={addDependent} className="sm:col-span-4 sm:w-auto sm:justify-self-start" variant="outline">
+              <Button onClick={addDependent} className="w-full sm:col-span-4 sm:w-auto sm:justify-self-start" variant="outline">
                 <Plus className="h-4 w-4" /> Add dependent
               </Button>
             </div>

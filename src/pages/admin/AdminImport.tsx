@@ -227,7 +227,7 @@ const AdminImport = () => {
               </div>
               {progress && <p className="text-xs text-muted-foreground mt-2">{progress}</p>}
             </CardHeader>
-            <CardContent className="overflow-x-auto p-0">
+            <CardContent className="w-full overflow-x-auto whitespace-nowrap p-0">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Name</TableHead><TableHead>Branch</TableHead><TableHead>Phone</TableHead>
