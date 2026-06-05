@@ -190,7 +190,7 @@ const AdminMembers = () => {
         </Card>
 
         <Card>
-          <CardContent className="overflow-x-auto p-0">
+          <CardContent className="w-full overflow-x-auto whitespace-nowrap p-0">
             <Table>
               <TableHeader>
                 <TableRow>

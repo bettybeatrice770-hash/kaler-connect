@@ -299,7 +299,7 @@ const AdminMemberDetail = () => {
           <CardHeader><CardTitle className="text-base">Arrears & savings entries</CardTitle>
             <CardDescription>FEF / Development / Advance subscription are tracked as savings, not arrears.</CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
+          <CardContent className="w-full overflow-x-auto whitespace-nowrap p-0">
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Type</TableHead><TableHead>Year</TableHead><TableHead>Funeral / note</TableHead>

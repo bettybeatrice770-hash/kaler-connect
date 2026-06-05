@@ -199,7 +199,7 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-display text-destructive">Ksh {totalArrears.toLocaleString()}</p>
+              <p className="text-3xl text-destructive"><span className="font-display">Ksh</span>{" "}<span className="font-sans tabular-nums">{totalArrears.toLocaleString()}</span></p>
             </CardContent>
           </Card>
           <Card>
@@ -262,7 +262,7 @@ const Dashboard = () => {
             <CardTitle>Family members</CardTitle>
             <CardDescription>Everyone in your linked family record</CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent className="w-full overflow-x-auto whitespace-nowrap">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -315,7 +315,7 @@ const Dashboard = () => {
             <CardTitle>Arrears breakdown</CardTitle>
             <CardDescription>What's owed and to which fund</CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent className="w-full overflow-x-auto whitespace-nowrap">
             {arrears.length === 0 ? (
               <p className="text-muted-foreground text-sm">All contributions cleared. Asante sana!</p>
             ) : (
