@@ -142,7 +142,7 @@ const AdminAuditLog = () => {
               const headerBranch = member?.branch || null;
               const diffs = buildDiff(oldRow, newRow);
               return (
-                <div key={e.id} className="py-4 text-sm space-y-2">
+                <div key={e.id} className="py-4 text-sm space-y-2 w-full max-w-full overflow-x-auto">
                   {(headerName || headerBranch) && (
                     <p className="text-sm font-semibold text-primary">
                       Name: {headerName || "—"} | Branch: {headerBranch || "—"}

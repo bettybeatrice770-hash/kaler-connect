@@ -267,7 +267,7 @@ const AdminMemberDetail = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1 flex-1 min-w-[220px]">
+              <div className="space-y-1 flex-1 min-w-0">
                 <Label htmlFor="pw">Initial password</Label>
                 <Input id="pw" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="e.g. kaler1234" />
               </div>
@@ -283,7 +283,7 @@ const AdminMemberDetail = () => {
               <CardDescription>Issue a new password for this member's existing login.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1 flex-1 min-w-[220px]">
+              <div className="space-y-1 flex-1 min-w-0">
                 <Label htmlFor="rpw">New password</Label>
                 <Input id="rpw" type="text" value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder="At least 6 characters" />
               </div>
