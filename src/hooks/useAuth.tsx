@@ -49,6 +49,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMustChangePassword(!!(prof as any)?.must_change_password);
   };
 
+  const applySession = async (newSession: Session | null) => {
+    setSession(newSession);
+    setUser(newSession?.user ?? null);
+    if (newSession?.user) {
+      await loadAll(newSession.user.id);
+    } else {
+      setRoles([]);
+      setBranchAdminIds([]);
+      setMustChangePassword(false);
+    }
+  };
+
   const refreshProfileFlags = async () => {
     if (!user) return;
     const { data: prof } = await supabase
@@ -60,26 +72,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    let active = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      if (newSession?.user) {
-        setTimeout(() => loadAll(newSession.user.id), 0);
-      } else {
-        setRoles([]);
-        setBranchAdminIds([]);
-        setMustChangePassword(false);
-      }
+      setLoading(true);
+      setTimeout(() => {
+        applySession(newSession).finally(() => {
+          if (active) setLoading(false);
+        });
+      }, 0);
     });
 
     supabase.auth.getSession().then(async ({ data: { session: existing } }) => {
-     setSession(existing);
-     setUser(existing?.user ?? null);
-     if (existing?.user) await loadAll(existing.user.id);
-     setLoading(false);
+     await applySession(existing);
+     if (active) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
