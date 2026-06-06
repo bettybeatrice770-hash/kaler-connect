@@ -74,18 +74,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let active = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setLoading(true);
-      setTimeout(() => {
-        applySession(newSession).finally(() => {
-          if (active) setLoading(false);
-        });
-      }, 0);
-    });
+    // 1. Safe Sequential Application Initializer
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (active) {
+          await applySession(initialSession);
+        }
+      } catch (error) {
+        console.error("Initial auth session retrieval failed:", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
 
-    supabase.auth.getSession().then(async ({ data: { session: existing } }) => {
-     await applySession(existing);
-     if (active) setLoading(false);
+    initializeAuth();
+
+    // 2. Isolated State Update Change Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!active) return;
+      
+      // Only invoke full UI block transitions for hard auth actions
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        setLoading(true);
+      }
+      
+      try {
+        await applySession(newSession);
+      } catch (error) {
+        console.error("Auth session sync failed:", error);
+      } finally {
+        if (active) setLoading(false);
+      }
     });
 
     return () => {
@@ -93,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       subscription.unsubscribe();
     };
   }, []);
-
+  
   const signOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
