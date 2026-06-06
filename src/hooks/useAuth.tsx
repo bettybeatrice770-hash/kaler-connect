@@ -16,7 +16,8 @@ type AuthContextType = {
   signOut: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType>({\n  session: null,
+const AuthContext = createContext<AuthContextType>({
+  session: null,
   user: null,
   loading: true,
   isAdmin: false,
@@ -40,35 +41,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loadAll = async (uid: string) => {
     console.log("🔄 Diagnostic: loadAll triggered for User ID:", uid);
 
-    // Execute queries in parallel while carefully pulling out both data and error responses
     const [rolesRes, branchRes, profileRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("branch_admins").select("branch_id").eq("user_id", uid),
       supabase.from("profiles").select("must_change_password").eq("id", uid).maybeSingle(),
     ]);
 
-    // 1. Evaluate user_roles execution status
     if (rolesRes.error) {
       console.error("❌ RLS / Database Error on 'user_roles' table read:", rolesRes.error.message, rolesRes.error.details);
     } else {
       console.log("✅ 'user_roles' read successfully. Found records:", rolesRes.data.length, rolesRes.data);
     }
 
-    // 2. Evaluate branch_admins execution status
     if (branchRes.error) {
       console.error("❌ RLS / Database Error on 'branch_admins' table read:", branchRes.error.message, branchRes.error.details);
     } else {
       console.log("✅ 'branch_admins' read successfully. Found records:", branchRes.data.length, branchRes.data);
     }
 
-    // 3. Evaluate profiles execution status
     if (profileRes.error) {
       console.error("❌ RLS / Database Error on 'profiles' table read:", profileRes.error.message, profileRes.error.details);
     } else {
       console.log("✅ 'profiles' read successfully. Record payload:", profileRes.data);
     }
 
-    // Apply safely mapped states with arrays protecting against missing records
     setRoles((rolesRes.data || []).map((x: any) => x.role));
     setBranchAdminIds((branchRes.data || []).map((x: any) => x.branch_id));
     setMustChangePassword(!!(profileRes.data as any)?.must_change_password);
@@ -103,7 +99,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let active = true;
 
-    // 1. Sequentially initialize the existing session when the application mounts
     const initializeAuth = async () => {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
@@ -119,11 +114,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     initializeAuth();
 
-    // 2. Clear out double-firing updates and intercept hard event shifts cleanly
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!active) return;
       
-      // Prevent internal token refresh routines from locking up the UI
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
         setLoading(true);
       }
