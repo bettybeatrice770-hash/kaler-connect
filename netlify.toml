@@ -13,6 +13,6 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    # Hardened policy, tuned to allow Supabase connections
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co"
+    # Finalized policy to allow fonts, inline styles, and Supabase connections
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://ohkswkuenwbntukkmxso.supabase.co;"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
