@@ -7,11 +7,5 @@
   to = "/index.html"
   status = 200
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    # This allows your site to communicate with Supabase while remaining secure
-    Content-Security-Policy = "default-src 'self'; connect-src 'self' https://ohkswkuenwbntukkmxso.supabase.co;"
+# We removed the [[headers]] section entirely to stop the blank page.
+# Once your credits refresh, this will allow the site to render normally.
