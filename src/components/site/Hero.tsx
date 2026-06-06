@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 
-const heroImg = "/hero-nairobi.jpg";
+const heroImg = "/hero-nairobi.webp";
 
 export const Hero = () => {
   return (
@@ -9,8 +9,8 @@ export const Hero = () => {
       <img
         src={heroImg}
         alt="Nairobi skyline at sunset"
-        width={1920}
-        height={1088}
+        width={1600}
+        height={908}
         fetchPriority="high"
         {...({ fetchpriority: "high" } as any)}
         decoding="async"
