@@ -18,14 +18,16 @@ const schema = z.object({
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate("/dashboard");
-  }, [user, loading, navigate]);
+    if (!loading && user) {
+      navigate(isAdmin ? "/dashboard" : "/profile", { replace: true });
+    }
+  }, [user, loading, navigate, isAdmin]);
 
   useEffect(() => {
     void import("./Dashboard");
@@ -53,7 +55,6 @@ const Login = () => {
       toast({ title: "Login failed", description: "Check your phone and password, or contact the secretary.", variant: "destructive" });
       return;
     }
-    navigate("/dashboard");
   };
 
   return (
@@ -76,15 +77,16 @@ const Login = () => {
                 <Label htmlFor="phone">Phone number</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="0712 345 678"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="pl-9"
-                    required
+                  {/* Added inputMode="tel" per image_f16522.png */}
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    inputMode="tel" 
+                    placeholder="0712 345 678" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    className="pl-9" 
+                    required 
                   />
                 </div>
               </div>
@@ -92,15 +94,7 @@ const Login = () => {
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9"
-                    required
-                  />
+                  <Input id="password" type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9" required />
                 </div>
               </div>
               <Button type="submit" variant="hero" className="w-full" disabled={busy}>
@@ -108,13 +102,8 @@ const Login = () => {
               </Button>
             </form>
             <div className="mt-6 text-sm text-muted-foreground text-center space-y-2">
-              <p>
-                <Link to="/forgot-password" className="text-primary font-medium hover:underline">Forgot your password?</Link>
-              </p>
-              <p>
-                First time here? Contact the secretary <strong className="text-foreground">Joseph Oluoch</strong> on{" "}
-                <a href="tel:+254701594936" className="text-primary font-medium">0701 594 936</a> to receive your login details.
-              </p>
+              <p><Link to="/forgot-password" className="text-primary font-medium hover:underline">Forgot your password?</Link></p>
+              <p>First time here? Contact the secretary <strong className="text-foreground">Joseph Oluoch</strong> on <a href="tel:+254701594936" className="text-primary font-medium">0701 594 936</a>.</p>
             </div>
           </CardContent>
         </Card>
