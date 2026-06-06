@@ -13,6 +13,5 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    # This specifically adds fonts and styles to stop the console errors
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://ohkswkuenwbntukkmxso.supabase.co;"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    # This allows your site to communicate with Supabase while remaining secure
+    Content-Security-Policy = "default-src 'self'; connect-src 'self' https://ohkswkuenwbntukkmxso.supabase.co;"
