@@ -45,10 +45,11 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const [{ data: profile }, { data: brs }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        supabase.from("branches").select("*"),
+      ]);
       setMe(profile as Profile | null);
-
-      const { data: brs } = await supabase.from("branches").select("*");
       setBranches((brs as Branch[]) || []);
 
       // My linked record(s) - by profile_id OR by family

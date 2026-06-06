@@ -27,6 +27,10 @@ const Login = () => {
     if (!loading && user) navigate("/dashboard");
   }, [user, loading, navigate]);
 
+  useEffect(() => {
+    void import("./Dashboard");
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse({ phone, password });
