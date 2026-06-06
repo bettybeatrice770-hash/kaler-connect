@@ -38,10 +38,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [branchAdminIds, setBranchAdminIds] = useState<string[]>([]);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  // Hardened and optimized data fetch via RPC
   const loadAll = async () => {
     console.log("🚀 Securely fetching auth data via RPC...");
 
+    // Call RPC without arguments; function now uses auth.uid() internally
     const { data, error } = await supabase.rpc('get_user_auth_data');
 
     if (error) {
