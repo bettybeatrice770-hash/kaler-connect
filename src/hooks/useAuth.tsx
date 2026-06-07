@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+// Point 1: AuthContextType includes refreshAuth
 type AuthContextType = {
   session: Session | null;
   user: User | null;
@@ -12,10 +13,12 @@ type AuthContextType = {
   isStaff: boolean;
   branchAdminIds: string[];
   mustChangePassword: boolean;
+  refreshAuth: () => Promise<void>;
   refreshProfileFlags: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
+// Point 2: Default context value includes refreshAuth
 const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
@@ -26,6 +29,7 @@ const AuthContext = createContext<AuthContextType>({
   isStaff: false,
   branchAdminIds: [],
   mustChangePassword: false,
+  refreshAuth: async () => {},
   refreshProfileFlags: async () => {},
   signOut: async () => {},
 });
@@ -40,12 +44,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadAll = async () => {
     const { data, error } = await supabase.rpc('get_user_auth_data');
-    if (error) return;
+    // Priority 1: Fix silent loadAll failure
+    if (error) {
+      console.error("Error loading user auth data:", error);
+      return;
+    }
     if (data) {
       setRoles(data.roles || []);
       setBranchAdminIds(data.branch_admin_ids || []);
       setMustChangePassword(!!data.must_change_password);
     }
+  };
+
+  const refreshAuth = async () => {
+    if (!user) return;
+    await loadAll();
   };
 
   const applySession = async (newSession: Session | null) => {
@@ -78,7 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!active) return;
-      // Fixed: Only trigger loading on SIGNED_IN
       if (event === "SIGNED_IN") setLoading(true);
       try { await applySession(newSession); } catch (e) { console.error(e); } finally { if (active) setLoading(false); }
     });
@@ -95,7 +107,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, isAdmin: roles.includes("admin"), isOfficer: roles.includes("officer"), isBranchRep: roles.includes("branch_rep"), isStaff: roles.includes("admin") || roles.includes("officer") || roles.includes("branch_rep"), branchAdminIds, mustChangePassword, refreshProfileFlags, signOut }}>
+    <AuthContext.Provider value={{ 
+      session, 
+      user, 
+      loading, 
+      isAdmin: roles.includes("admin"), 
+      isOfficer: roles.includes("officer"), 
+      isBranchRep: roles.includes("branch_rep"), 
+      isStaff: roles.includes("admin") || roles.includes("officer") || roles.includes("branch_rep"), 
+      branchAdminIds, 
+      mustChangePassword, 
+      refreshAuth, 
+      refreshProfileFlags, 
+      signOut 
+    }}>
       {children}
     </AuthContext.Provider>
   );
