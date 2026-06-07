@@ -33,7 +33,11 @@ const ChangePassword = () => {
       const { error: authError } = await supabase.auth.updateUser({ password: pw });
       if (authError) throw authError;
 
-      const { error: profileError } = await supabase.from("profiles").update({ must_change_password: false }).eq("id", user.id);
+      const { error: profileError } = await supabase.from("profiles").update({ 
+        must_change_password: false, 
+        reset_requested: false, 
+        reset_requested_at: null 
+      }).eq("id", user.id);
       if (profileError) throw profileError;
 
       toast({ title: "Password updated", description: "Please sign in with your new password." });
