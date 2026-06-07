@@ -1,112 +1,113 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, ShieldCheck, UserMinus, UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, Loader2, Plus, X, Search } from "lucide-react";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin (full rights)",
-  officer: "Officer (read-only, sees all)",
-  branch_rep: "Branch rep (read-only, one branch)",
+type Profile = {
+  id: string;
+  full_name: string;
+  roles: string[];
 };
 
 const AdminRoles = () => {
+  const { isAdmin, refreshAuth } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [branchAdmins, setBranchAdmins] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [picked, setPicked] = useState<any>(null);
-  const [pickedRole, setPickedRole] = useState<string>("officer");
-  const [pickedBranch, setPickedBranch] = useState<string>("");
-  const [busy, setBusy] = useState(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [updating, setUpdating] = useState<string | null>(null);
 
-  const reload = async () => {
-    const [{ data: r }, { data: p }, { data: ba }, { data: brs }] = await Promise.all([
-      supabase.from("user_roles").select("*"),
-      supabase.from("profiles").select("id, full_name, phone"),
-      supabase.from("branch_admins").select("*"),
-      supabase.from("branches").select("*").order("name"),
-    ]);
-    setRoles(r || []); setProfiles(p || []); setBranchAdmins(ba || []); setBranches(brs || []);
+  const fetchProfiles = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, roles");
+    if (error) {
+      toast({ title: "Error loading profiles", description: error.message, variant: "destructive" });
+    } else {
+      setProfiles(data || []);
+    }
     setLoading(false);
   };
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
 
-  const profileById = (id: string) => profiles.find((p) => p.id === id);
-  const branchById = (id: string) => branches.find((b) => b.id === id);
+  const toggleRole = async (profileId: string, currentRoles: string[], role: string) => {
+    setUpdating(profileId);
+    const newRoles = currentRoles.includes(role)
+      ? currentRoles.filter((r) => r !== role)
+      : [...currentRoles, role];
 
-  const filteredProfiles = profiles.filter((p) => {
-    if (!search.trim()) return false;
-    const q = search.toLowerCase();
-    return p.full_name?.toLowerCase().includes(q) || (p.phone || "").includes(q);
-  }).slice(0, 8);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ roles: newRoles })
+      .eq("id", profileId);
 
-  const adminCount = roles.filter((r) => r.role === "admin").length;
-
-  const assign = async () => {
-    if (!picked) return toast({ title: "Pick a member first", variant: "destructive" });
-
-    // Check if user already has an administrative role
-    const adminRoles = ["admin", "officer", "branch_rep"];
-    const existing = roles.find((r) => r.user_id === picked.id && adminRoles.includes(r.role));
-    if (existing) {
-      return toast({
-        title: "User already has a role",
-        description: `This member is already a ${existing.role}. Remove that role first.`,
-        variant: "destructive",
-      });
+    if (error) {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Roles updated" });
+      await refreshAuth(); // Ensure the UI reflects the change
+      fetchProfiles();
     }
-
-    if (pickedRole === "admin" && adminCount >= 4) return toast({ title: "Max 4 admins allowed", variant: "destructive" });
-    if (pickedRole === "branch_rep" && !pickedBranch) return toast({ title: "Pick a branch", variant: "destructive" });
-    setBusy(true);
-    const { data, error } = await supabase.functions.invoke("manage-role", {
-      body: { action: "assign", target_user_id: picked.id, role: pickedRole, branch_id: pickedBranch || undefined },
-    });
-    setBusy(false);
-    if (error || (data as any)?.error) return toast({ title: "Failed", description: (data as any)?.error || error?.message, variant: "destructive" });
-    toast({ title: "Role assigned" });
-    setPicked(null); setSearch(""); setPickedBranch(""); reload();
+    setUpdating(null);
   };
 
-  const remove = async (userId: string, role: string) => {
-    if (!confirm(`Remove ${role} role from this user?`)) return;
-    const { data, error } = await supabase.functions.invoke("manage-role", { body: { action: "remove", target_user_id: userId, role } });
-    if (error || (data as any)?.error) return toast({ title: "Failed", description: (data as any)?.error || error?.message, variant: "destructive" });
-    toast({ title: "Role removed" });
-    reload();
-  };
+  if (!isAdmin) {
+    return <PortalLayout><div className="p-8 text-center text-destructive">Unauthorized access.</div></PortalLayout>;
+  }
 
-  const grouped = ["admin", "officer", "branch_rep"].map((role) => ({
-    role,
-    rows: roles.filter((r) => r.role === role).map((r) => ({ ...r, profile: profileById(r.user_id) })),
-  }));
-
-  if (loading) return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div></PortalLayout>;
+  if (loading) return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></PortalLayout>;
 
   return (
     <PortalLayout>
-      <div className="space-y-6">
-        <Button asChild variant="ghost" size="sm"><Link to="/admin"><ChevronLeft className="h-4 w-4" /> Back</Link></Button>
+      <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="font-display text-3xl text-primary">Roles & permissions</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Up to <b>4 admins</b> total (creator + secretary + assistant + one spare). Officers (chair, vice, treasurer) see everything but cannot edit. Branch reps see their branch only.
-          </p>
+          <h1 className="text-3xl font-display text-primary">Roles & Permissions</h1>
+          <p className="text-muted-foreground">Manage administrative access for staff and branch representatives.</p>
         </div>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Assign a role</CardTitle>
+          <CardHeader>
+            <CardTitle>User Roles</CardTitle>
+            <CardDescription>Grant or revoke access to administrative dashboards.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {profiles.map((p) => (
+                <div key={p.id} className="py-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium">{p.full_name}</p>
+                    <p className="text-sm text-muted-foreground italic">Current: {p.roles.length > 0 ? p.roles.join(", ") : "No roles"}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {["admin", "officer", "branch_rep"].map((role) => (
+                      <Button
+                        key={role}
+                        variant={p.roles.includes(role) ? "default" : "outline"}
+                        size="sm"
+                        disabled={updating === p.id}
+                        onClick={() => toggleRole(p.id, p.roles, role)}
+                      >
+                        {updating === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : p.roles.includes(role) ? <UserMinus className="h-3 w-3 mr-1" /> : <UserPlus className="h-3 w-3 mr-1" />}
+                        {role}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </PortalLayout>
+  );
+};
+
+export default AdminRoles;
             <CardDescription>Search by name or phone. The person must already have a login.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
