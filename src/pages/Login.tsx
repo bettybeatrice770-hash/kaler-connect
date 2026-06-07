@@ -29,31 +29,47 @@ const Login = () => {
     }
   }, [user, loading, navigate, isAdmin]);
 
-  useEffect(() => {
-    void import("./Dashboard");
-  }, []);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear stale sessions to prevent loading loops
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("sb-")) localStorage.removeItem(key);
+    });
+
     const parsed = schema.safeParse({ phone, password });
     if (!parsed.success) {
       toast({ title: "Check your details", description: parsed.error.errors[0].message, variant: "destructive" });
       return;
     }
+    
     const e164 = normalizeKenyanPhone(phone);
     if (!e164) {
       toast({ title: "Invalid phone", description: "Use a valid Kenyan number e.g. 0712345678", variant: "destructive" });
       return;
     }
+
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: phoneToAuthEmail(e164),
-      password,
-    });
-    setBusy(false);
-    if (error) {
-      toast({ title: "Login failed", description: "Check your phone and password, or contact the secretary.", variant: "destructive" });
-      return;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: phoneToAuthEmail(e164),
+        password,
+      });
+
+      if (error) throw error;
+
+      // Check for legacy/weak password scenario
+      // If the session exists but user is flagged, or if we get a weak_password notice
+      if (data.session) {
+        navigate(isAdmin ? "/dashboard" : "/profile", { replace: true });
+      } else {
+        // Force redirect to change password if the flow requires it
+        navigate("/change-password");
+      }
+    } catch (err: any) {
+      toast({ title: "Login failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -65,9 +81,7 @@ const Login = () => {
         </Link>
         <Card className="shadow-elegant">
           <CardHeader className="text-center">
-            <div className="mx-auto h-12 w-12 rounded-md bg-gradient-gold grid place-items-center font-display text-primary font-bold shadow-gold mb-2">
-              K
-            </div>
+            <div className="mx-auto h-12 w-12 rounded-md bg-gradient-gold grid place-items-center font-display text-primary font-bold shadow-gold mb-2">K</div>
             <CardTitle className="font-display text-2xl">Member Login</CardTitle>
             <CardDescription>Kaler Nairobi Welfare Association</CardDescription>
           </CardHeader>
@@ -77,17 +91,7 @@ const Login = () => {
                 <Label htmlFor="phone">Phone number</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  {/* Added inputMode="tel" per image_f16522.png */}
-                  <Input 
-                    id="phone" 
-                    type="tel" 
-                    inputMode="tel" 
-                    placeholder="0712 345 678" 
-                    value={phone} 
-                    onChange={(e) => setPhone(e.target.value)} 
-                    className="pl-9" 
-                    required 
-                  />
+                  <Input id="phone" type="tel" inputMode="tel" placeholder="0712 345 678" value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-9" required />
                 </div>
               </div>
               <div className="space-y-2">
