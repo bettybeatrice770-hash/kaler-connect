@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,22 +29,42 @@ const ChangePassword = () => {
     e.preventDefault();
     if (pw.length < 8) return toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
     if (pw !== pw2) return toast({ title: "Passwords don't match", variant: "destructive" });
+    
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: pw });
-    if (error) {
+
+    try {
+      // 1. Update the password in Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({ password: pw });
+      if (authError) throw authError;
+
+      // 2. Clear the password-change flags in the profiles table
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ 
+          must_change_password: false, 
+          reset_requested: false, 
+          reset_requested_at: null 
+        })
+        .eq("id", user.id);
+      
+      if (profileError) throw profileError;
+
+      // 3. Success handling: Refresh flags, notify, and force re-login
+      await refreshProfileFlags();
+      toast({ title: "Password updated", description: "Please sign in with your new password." });
+      
+      await signOut(); // Clear local state
+      navigate("/login", { replace: true }); // Redirect to force fresh session
+    } catch (err: any) {
+      console.error("Update error:", err);
+      toast({ 
+        title: "Update failed", 
+        description: err.message || "An unexpected error occurred.", 
+        variant: "destructive" 
+      });
+    } finally {
       setBusy(false);
-      return toast({ title: "Could not update password", description: error.message, variant: "destructive" });
     }
-    const { error: pErr } = await supabase
-      .from("profiles")
-      .update({ must_change_password: false, reset_requested: false, reset_requested_at: null })
-      .eq("id", user.id);
-    setBusy(false);
-    if (pErr) return toast({ title: "Saved password, profile flag failed", description: pErr.message, variant: "destructive" });
-    await refreshProfileFlags();
-    toast({ title: "Password updated", description: "Please sign in with your new password." });
-    await signOut();
-    navigate("/login", { replace: true });
   };
 
   return (
