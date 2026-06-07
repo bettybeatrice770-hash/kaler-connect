@@ -14,6 +14,12 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, ChevronLeft, KeyRound, Save, Plus, Trash2, Check, RefreshCw, UserX } from "lucide-react";
 import { formatPhoneDisplay, normalizeKenyanPhone } from "@/lib/phone";
 
+const generateSecurePassword = () => {
+  const array = new Uint8Array(12);
+  window.crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(36)).join('').slice(0, 12);
+};
+
 const ARREAR_TYPES = ["subscription", "funeral", "fines_penalties"] as const;
 const SAVINGS_TYPES = ["development_fund", "fpf", "advance_subscription"] as const;
 const ALL_TYPES = [...ARREAR_TYPES, ...SAVINGS_TYPES] as const;
@@ -45,6 +51,7 @@ const AdminMemberDetail = () => {
   const [arrears, setArrears] = useState<any[]>([]);
   const [password, setPassword] = useState("");
   const [resetPw, setResetPw] = useState("");
+  const [showGenerated, setShowGenerated] = useState(false);
   const [form, setForm] = useState<any>({});
   const [newArr, setNewArr] = useState({ type: "subscription", year: new Date().getFullYear(), funeral_name: "", amount: "" });
 
@@ -74,7 +81,6 @@ const AdminMemberDetail = () => {
 
   useEffect(() => { load(); }, [id]);
 
-  // Open arrears = sum of un-cleared rows whose type is an arrears type
   const openArrears = useMemo(
     () => arrears
       .filter((a) => !a.cleared && (ARREAR_TYPES as readonly string[]).includes(a.type))
@@ -108,7 +114,7 @@ const AdminMemberDetail = () => {
   };
 
   const issueLogin = async () => {
-    if (password.length < 6) return toast({ title: "Password too short", variant: "destructive" });
+    if (password.length < 8) return toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("issue-member-login", { body: { member_record_id: id, password } });
     setBusy(false);
@@ -118,7 +124,7 @@ const AdminMemberDetail = () => {
   };
 
   const resetPassword = async () => {
-    if (resetPw.length < 6) return toast({ title: "Password too short", variant: "destructive" });
+    if (resetPw.length < 8) return toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: id, password: resetPw } });
     setBusy(false);
@@ -142,7 +148,6 @@ const AdminMemberDetail = () => {
     if (!amt || amt <= 0) return toast({ title: "Enter an amount", variant: "destructive" });
     const isSavings = (SAVINGS_TYPES as readonly string[]).includes(newArr.type);
     if (isSavings) {
-      // Savings types: bump the corresponding paid total on member_record instead of creating arrears
       const col = newArr.type === "fpf" ? "fpf_paid" : newArr.type === "development_fund" ? "development_paid" : "advance_subscription_paid";
       const current = Number(record[col] || 0);
       const update: any = {}; update[col] = current + amt;
@@ -262,14 +267,12 @@ const AdminMemberDetail = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4" /> Issue login</CardTitle>
-              <CardDescription>
-                Creates an account using {record.phone ? formatPhoneDisplay(record.phone) : "the member's phone"}. Save phone first if blank.
-              </CardDescription>
+              <CardDescription>Creates an account using {record.phone ? formatPhoneDisplay(record.phone) : "the member's phone"}. Save phone first if blank.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
               <div className="space-y-1 flex-1 min-w-0">
                 <Label htmlFor="pw">Initial password</Label>
-                <Input id="pw" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="e.g. kaler1234" />
+                <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="e.g. kaler1234" minLength={8} />
               </div>
               <Button onClick={issueLogin} disabled={busy || !record.phone} variant="hero">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create login"}
@@ -285,9 +288,14 @@ const AdminMemberDetail = () => {
             <CardContent className="flex flex-wrap items-end gap-3">
               <div className="space-y-1 flex-1 min-w-0">
                 <Label htmlFor="rpw">New password</Label>
-                <Input id="rpw" type="text" value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder="At least 6 characters" />
+                <div className="flex gap-2">
+                    <Input id="rpw" type={showGenerated ? "text" : "password"} value={resetPw} onChange={(e) => setResetPw(e.target.value)} placeholder="At least 8 characters" minLength={8} />
+                    <Button variant="ghost" size="sm" onClick={() => setShowGenerated(v => !v)}>
+                        {showGenerated ? "Hide" : "Show"}
+                    </Button>
+                </div>
               </div>
-              <Button variant="outline" onClick={() => setResetPw(Math.random().toString(36).slice(-8) + "K")}>Generate</Button>
+              <Button variant="outline" onClick={() => setResetPw(generateSecurePassword())}>Generate</Button>
               <Button onClick={resetPassword} disabled={busy} variant="hero">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Reset password"}
               </Button>
