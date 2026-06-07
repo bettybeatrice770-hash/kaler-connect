@@ -10,13 +10,11 @@ import { Loader2, KeyRound } from "lucide-react";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const [ready, setReady] = useState(false);
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    // Supabase puts recovery tokens in URL hash; getSession picks them up automatically
     supabase.auth.getSession().then(({ data }) => setReady(!!data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setReady(!!s));
     return () => sub.subscription.unsubscribe();
@@ -24,7 +22,7 @@ const ResetPassword = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw.length < 6) return toast({ title: "Password too short", variant: "destructive" });
+    if (pw.length < 8) return toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);
@@ -60,5 +58,4 @@ const ResetPassword = () => {
     </main>
   );
 };
-
 export default ResetPassword;
