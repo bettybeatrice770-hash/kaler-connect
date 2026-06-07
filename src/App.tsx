@@ -10,7 +10,6 @@ import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import { Loader2 } from "lucide-react";
 import Index from "./pages/Index.tsx";
 
-// Bumped version number to force a cache clear for all users
 const APP_VERSION = "2026.06.07-1"; 
 
 const RouteFallback = () => (
@@ -19,40 +18,17 @@ const RouteFallback = () => (
   </div>
 );
 
-const Login = lazy(() => import("./pages/Login.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Profile = lazy(() => import("./pages/Profile.tsx"));
-const AdminOverview = lazy(() => import("./pages/admin/AdminOverview.tsx"));
-const AdminMembers = lazy(() => import("./pages/admin/AdminMembers.tsx"));
-const AdminMemberDetail = lazy(() => import("./pages/admin/AdminMemberDetail.tsx"));
-const AdminFamilies = lazy(() => import("./pages/admin/AdminFamilies.tsx"));
-const AdminBootstrap = lazy(() => import("./pages/admin/AdminBootstrap.tsx"));
-const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
-const AdminImport = lazy(() => import("./pages/admin/AdminImport.tsx"));
-const AdminRoles = lazy(() => import("./pages/admin/AdminRoles.tsx"));
-const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog.tsx"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
-const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
-const NotFound = lazy(() => import("./pages/NotFound.tsx"));
-
-const queryClient = new QueryClient();
+// ... (lazy imports remain as you have them)
 
 const App = () => {
   useEffect(() => {
     const savedVersion = localStorage.getItem("app_version");
-
-    // If version exists but is outdated, clear storage and reload immediately[cite: 1]
     if (savedVersion !== null && savedVersion !== APP_VERSION) {
       localStorage.clear();
       sessionStorage.clear();
-      
-      // Set the version before reload to ensure it is marked current immediately[cite: 1]
       localStorage.setItem("app_version", APP_VERSION);
       window.location.reload();
     }
-
-    // Handles first-time users or ensures the version is always current[cite: 1]
     localStorage.setItem("app_version", APP_VERSION);
   }, []);
 
@@ -67,21 +43,7 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-                <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
-                <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
-                <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-                <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-                <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
-                <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
-                <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
-                <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
-                <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
-                <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
-                <Route path="/admin/bootstrap" element={<AdminBootstrap />} />
-                <Route path="*" element={<NotFound />} />
+                {/* ... all your routes ... */}
               </Routes>
             </Suspense>
           </AuthProvider>
@@ -90,5 +52,4 @@ const App = () => {
     </QueryClientProvider>
   );
 };
-
 export default App;
