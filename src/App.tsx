@@ -18,7 +18,24 @@ const RouteFallback = () => (
   </div>
 );
 
-// ... (lazy imports remain as you have them)
+const Login = lazy(() => import("./pages/Login.tsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const Profile = lazy(() => import("./pages/Profile.tsx"));
+const AdminOverview = lazy(() => import("./pages/admin/AdminOverview.tsx"));
+const AdminMembers = lazy(() => import("./pages/admin/AdminMembers.tsx"));
+const AdminMemberDetail = lazy(() => import("./pages/admin/AdminMemberDetail.tsx"));
+const AdminFamilies = lazy(() => import("./pages/admin/AdminFamilies.tsx"));
+const AdminBootstrap = lazy(() => import("./pages/admin/AdminBootstrap.tsx"));
+const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
+const AdminImport = lazy(() => import("./pages/admin/AdminImport.tsx"));
+const AdminRoles = lazy(() => import("./pages/admin/AdminRoles.tsx"));
+const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog.tsx"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+
+const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
@@ -43,7 +60,21 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
-                {/* ... all your routes ... */}
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
+                <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
+                <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
+                <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+                <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+                <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
+                <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
+                <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
+                <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
+                <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
+                <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
+                <Route path="/admin/bootstrap" element={<AdminBootstrap />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </AuthProvider>
@@ -52,4 +83,5 @@ const App = () => {
     </QueryClientProvider>
   );
 };
+
 export default App;
