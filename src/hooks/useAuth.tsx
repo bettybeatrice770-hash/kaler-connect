@@ -78,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!active) return;
+      // Fixed: Only trigger loading on SIGNED_IN
       if (event === "SIGNED_IN") setLoading(true);
       try { await applySession(newSession); } catch (e) { console.error(e); } finally { if (active) setLoading(false); }
     });
