@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,6 +9,9 @@ import { RequireAuth } from "@/components/portal/RequireAuth";
 import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import { Loader2 } from "lucide-react";
 import Index from "./pages/Index.tsx";
+
+// Bumped version number to force a cache clear for all users
+const APP_VERSION = "2026.06.07-1"; 
 
 const RouteFallback = () => (
   <div className="min-h-screen grid place-items-center bg-background">
@@ -35,39 +38,57 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-              <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
-              <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
-              <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-              <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-              <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
-              <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
-              <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
-              <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
-              <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
-              <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
-              <Route path="/admin/bootstrap" element={<AdminBootstrap />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    const savedVersion = localStorage.getItem("app_version");
+
+    // If version exists but is outdated, clear storage and reload immediately[cite: 1]
+    if (savedVersion !== null && savedVersion !== APP_VERSION) {
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Set the version before reload to ensure it is marked current immediately[cite: 1]
+      localStorage.setItem("app_version", APP_VERSION);
+      window.location.reload();
+    }
+
+    // Handles first-time users or ensures the version is always current[cite: 1]
+    localStorage.setItem("app_version", APP_VERSION);
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
+                <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
+                <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
+                <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+                <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+                <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
+                <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
+                <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
+                <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
+                <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
+                <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
+                <Route path="/admin/bootstrap" element={<AdminBootstrap />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
