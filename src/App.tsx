@@ -73,7 +73,6 @@ const App = () => {
                 <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
                 <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
                 <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
-                {/* Protected bootstrap route */}
                 <Route path="/admin/bootstrap" element={<RequireAuth><AdminBootstrap /></RequireAuth>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
