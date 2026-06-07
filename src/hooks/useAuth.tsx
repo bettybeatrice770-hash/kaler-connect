@@ -39,21 +39,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const loadAll = async () => {
-    console.log("🚀 Securely fetching auth data via RPC...");
-
-    // Call RPC without arguments; function now uses auth.uid() internally
     const { data, error } = await supabase.rpc('get_user_auth_data');
-
-    if (error) {
-      console.error("❌ RPC Error fetching auth data:", error.message);
-      return;
-    }
-
+    if (error) return;
     if (data) {
       setRoles(data.roles || []);
       setBranchAdminIds(data.branch_admin_ids || []);
       setMustChangePassword(!!data.must_change_password);
-      console.log("✅ Auth data loaded securely via RPC.");
     }
   };
 
@@ -71,56 +62,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshProfileFlags = async () => {
     if (!user) return;
-    const { data: prof, error } = await supabase
-      .from("profiles")
-      .select("must_change_password")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("❌ Error running refreshProfileFlags:", error.message);
-    }
+    const { data: prof } = await supabase.from("profiles").select("must_change_password").eq("id", user.id).maybeSingle();
     setMustChangePassword(!!(prof as any)?.must_change_password);
   };
 
   useEffect(() => {
     let active = true;
-
     const initializeAuth = async () => {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        if (active) {
-          await applySession(initialSession);
-        }
-      } catch (error) {
-        console.error("💥 Critical error initializing base auth session:", error);
-      } finally {
-        if (active) setLoading(false);
-      }
+        if (active) await applySession(initialSession);
+      } catch (e) { console.error(e); } finally { if (active) setLoading(false); }
     };
-
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!active) return;
-      
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        setLoading(true);
-      }
-      
-      try {
-        await applySession(newSession);
-      } catch (error) {
-        console.error("💥 Critical error handling state update change listener:", error);
-      } finally {
-        if (active) setLoading(false);
-      }
+      if (event === "SIGNED_IN") setLoading(true);
+      try { await applySession(newSession); } catch (e) { console.error(e); } finally { if (active) setLoading(false); }
     });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
+    return () => { active = false; subscription.unsubscribe(); };
   }, []);
   
   const signOut = async () => {
@@ -132,16 +93,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMustChangePassword(false);
   };
 
-  const isAdmin = roles.includes("admin");
-  const isOfficer = roles.includes("officer");
-  const isBranchRep = roles.includes("branch_rep");
-  const isStaff = isAdmin || isOfficer || isBranchRep;
-
   return (
-    <AuthContext.Provider value={{ session, user, loading, isAdmin, isOfficer, isBranchRep, isStaff, branchAdminIds, mustChangePassword, refreshProfileFlags, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, isAdmin: roles.includes("admin"), isOfficer: roles.includes("officer"), isBranchRep: roles.includes("branch_rep"), isStaff: roles.includes("admin") || roles.includes("officer") || roles.includes("branch_rep"), branchAdminIds, mustChangePassword, refreshProfileFlags, signOut }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
 export const useAuth = () => useContext(AuthContext);
