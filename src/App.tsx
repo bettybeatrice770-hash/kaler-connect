@@ -41,7 +41,9 @@ const App = () => {
   useEffect(() => {
     const savedVersion = localStorage.getItem("app_version");
     if (savedVersion !== null && savedVersion !== APP_VERSION) {
-      localStorage.clear();
+      Object.keys(localStorage)
+        .filter(k => !k.startsWith('sb-'))
+        .forEach(k => localStorage.removeItem(k));
       sessionStorage.clear();
       localStorage.setItem("app_version", APP_VERSION);
       window.location.reload();
