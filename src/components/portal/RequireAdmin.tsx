@@ -3,11 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
-// Allows admins, officers and branch reps to view admin pages.
-// Write actions are still gated by database RLS (admins only),
-// so officers/branch reps effectively get read-only access.
 export const RequireAdmin = ({ children }: { children: ReactNode }) => {
-  const { user, loading, isStaff } = useAuth();
+  const { user, loading, isStaff, mustChangePassword } = useAuth();
+  
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center">
@@ -15,7 +13,12 @@ export const RequireAdmin = ({ children }: { children: ReactNode }) => {
       </div>
     );
   }
+  
   if (!user) return <Navigate to="/login" replace />;
+  if (mustChangePassword) return <Navigate to="/change-password" replace />;
+  
+  // Ensure the user has the required staff role
   if (!isStaff) return <Navigate to="/dashboard" replace />;
+  
   return <>{children}</>;
 };
