@@ -47,11 +47,16 @@ const AdminOverview = () => {
 
   useEffect(() => {
     (async () => {
-      const [{ data: brs }, { data: recs }, { data: arr }] = await Promise.all([
+      const [{ data: brs, error: brsErr }, { data: recs, error: recsErr }, { data: arr, error: arrErr }] = await Promise.all([
         supabase.from("branches").select("*").order("name"),
         supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
         supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
       ]);
+      if (brsErr || recsErr || arrErr) {
+        toast({ title: "Failed to load dashboard data", description: (brsErr ?? recsErr ?? arrErr)?.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
       let allBranches = (brs as Branch[]) || [];
       let allRecs = (recs as MemberRecord[]) || [];
       if (branchScoped) {
