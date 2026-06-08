@@ -10,7 +10,7 @@ import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import { Loader2 } from "lucide-react";
 import Index from "./pages/Index.tsx";
 
-const APP_VERSION = "2026.06.07-1"; 
+const APP_VERSION = "2026.06.07-1";
 
 const RouteFallback = () => (
   <div className="min-h-screen grid place-items-center bg-background">
@@ -18,9 +18,16 @@ const RouteFallback = () => (
   </div>
 );
 
+// Lazy-loaded pages
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Profile = lazy(() => import("./pages/Profile.tsx"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+
+// Admin pages
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview.tsx"));
 const AdminMembers = lazy(() => import("./pages/admin/AdminMembers.tsx"));
 const AdminMemberDetail = lazy(() => import("./pages/admin/AdminMemberDetail.tsx"));
@@ -30,10 +37,6 @@ const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
 const AdminImport = lazy(() => import("./pages/admin/AdminImport.tsx"));
 const AdminRoles = lazy(() => import("./pages/admin/AdminRoles.tsx"));
 const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog.tsx"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
-const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
-const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -42,13 +45,14 @@ const App = () => {
     const savedVersion = localStorage.getItem("app_version");
     if (savedVersion !== null && savedVersion !== APP_VERSION) {
       Object.keys(localStorage)
-        .filter(k => !k.startsWith('sb-'))
-        .forEach(k => localStorage.removeItem(k));
+        .filter((k) => !k.startsWith("sb-"))
+        .forEach((k) => localStorage.removeItem(k));
       sessionStorage.clear();
       localStorage.setItem("app_version", APP_VERSION);
       window.location.reload();
+    } else if (savedVersion === null) {
+      localStorage.setItem("app_version", APP_VERSION);
     }
-    localStorage.setItem("app_version", APP_VERSION);
   }, []);
 
   return (
@@ -60,22 +64,29 @@ const App = () => {
           <AuthProvider>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-                <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
-                <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
+
+                {/* Protected User Routes */}
                 <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
                 <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+                <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
+
+                {/* Protected Admin Routes */}
                 <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
                 <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
                 <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
                 <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
                 <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
                 <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
-                <Route path="/admin/bootstrap" element={<RequireAuth><AdminBootstrap /></RequireAuth>} />
+                <Route path="/admin/bootstrap" element={<RequireAdmin><AdminBootstrap /></RequireAdmin>} />
+                <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
+                <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
+
+                {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
