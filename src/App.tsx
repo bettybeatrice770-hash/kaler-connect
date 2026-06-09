@@ -37,6 +37,7 @@ const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
 const AdminImport = lazy(() => import("./pages/admin/AdminImport.tsx"));
 const AdminRoles = lazy(() => import("./pages/admin/AdminRoles.tsx"));
 const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog.tsx"));
+const AdminBranches = lazy(() => import("./pages/admin/AdminBranches.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -85,6 +86,7 @@ const App = () => {
                 <Route path="/admin/bootstrap" element={<RequireAdmin><AdminBootstrap /></RequireAdmin>} />
                 <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
                 <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
+                <Route path="/admin/branches" element={<RequireAdmin><AdminBranches /></RequireAdmin>} />
 
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
