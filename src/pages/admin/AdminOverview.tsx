@@ -45,31 +45,42 @@ const AdminOverview = () => {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
+  const branchAdminIdsKey = branchAdminIds.join(",");
+
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       const [{ data: brs, error: brsErr }, { data: recs, error: recsErr }, { data: arr, error: arrErr }] = await Promise.all([
         supabase.from("branches").select("*").order("name"),
         supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
         supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
       ]);
+      
+      if (!isMounted) return;
+
       if (brsErr || recsErr || arrErr) {
         toast({ title: "Failed to load dashboard data", description: (brsErr ?? recsErr ?? arrErr)?.message, variant: "destructive" });
         setLoading(false);
         return;
       }
+      
       let allBranches = (brs as Branch[]) || [];
       let allRecs = (recs as MemberRecord[]) || [];
+      
       if (branchScoped) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
         allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
       }
       const recIds = new Set(allRecs.map((r) => r.id));
+      
       setBranches(allBranches);
       setRecords(allRecs);
       setArrears(((arr as Arrear[]) || []).filter((a) => recIds.has(a.member_record_id)));
       setLoading(false);
     })();
-  }, [branchScoped, branchAdminIds.join(",")]);
+
+    return () => { isMounted = false; };
+  }, [branchScoped, branchAdminIdsKey]);
 
   const totalArrears = useMemo(() => arrears.reduce((s, a) => s + Number(a.amount), 0), [arrears]);
   const arrearsByMember = useMemo(() => {
@@ -77,6 +88,7 @@ const AdminOverview = () => {
     for (const a of arrears) m[a.member_record_id] = (m[a.member_record_id] || 0) + Number(a.amount);
     return m;
   }, [arrears]);
+  
   const arrearsByStatus = useMemo(() => {
     const m: Record<string, { total: number; count: number }> = {};
     STATUS_KEYS.forEach((k) => (m[k] = { total: 0, count: 0 }));
@@ -95,6 +107,7 @@ const AdminOverview = () => {
   const fefTotal = useMemo(() => records.reduce((s, r) => s + Number(r.fpf_paid || 0), 0), [records]);
   const fefCount = useMemo(() => records.filter((r) => Number(r.fpf_paid) > 0).length, [records]);
   const advTotal = useMemo(() => records.reduce((s, r) => s + Number(r.advance_subscription_paid || 0), 0), [records]);
+  
   const byBranch = useMemo(() => branches.map((b) => {
     const rs = records.filter((r) => r.branch_id === b.id);
     const statusBreakdown: Record<string, { count: number; arrears: number }> = {};
@@ -146,7 +159,7 @@ const AdminOverview = () => {
     const { data: mr } = await supabase.from("member_records").select("id").eq("profile_id", profileId).maybeSingle();
     if (!mr?.id) {
       setApproving(null);
-      toast({ title: "No linked member record", description: "Cannot reset this account from here.", variant: "destructive" });
+      toast({ title: "No linked member record", description: `Cannot reset ${fullName}'s account from here.`, variant: "destructive" });
       return;
     }
     const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id, format: pwFormat } });
@@ -165,12 +178,13 @@ const AdminOverview = () => {
     setCancelling(cancelTarget.id);
     const { error } = await supabase.rpc("cancel_password_reset_request", { _profile_id: cancelTarget.id });
     setCancelling(null);
-    setCancelTarget(null);
     if (error) {
+      setCancelTarget(null);
       toast({ title: "Could not cancel", description: error.message, variant: "destructive" });
       return;
     }
     toast({ title: "Request cancelled" });
+    setCancelTarget(null);
     loadResetRequests();
   };
 
@@ -334,6 +348,10 @@ const AdminOverview = () => {
               <p className="font-medium text-primary">Mass arrears event</p>
               <p className="text-xs text-muted-foreground">Add a yearly subscription or funeral charge to many members</p>
             </Link>
+            <Link to="/admin/branches" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
+              <p className="font-medium text-primary">Branches</p>
+              <p className="text-xs text-muted-foreground">Create, rename or delete branches</p>
+            </Link>
             <Link to="/admin/families" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
               <p className="font-medium text-primary">Families &amp; merge</p>
               <p className="text-xs text-muted-foreground">Group spouses into one family</p>
@@ -359,9 +377,9 @@ const AdminOverview = () => {
             <AlertDialogTitle>Temporary Password Generated</AlertDialogTitle>
             <AlertDialogDescription>
               Copy this password and share it with the member. It will not be shown again.
-              <div className="mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border">
+              <span className="block mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border text-primary">
                 {tempPassword}
-              </div>
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
