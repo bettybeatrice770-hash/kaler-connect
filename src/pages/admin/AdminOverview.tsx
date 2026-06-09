@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download, KeyRound } from "lucide-react";
+import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download, KeyRound, UserPlus, UserCheck, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadMembersExcel } from "@/lib/exportExcel";
 import { toast } from "@/hooks/use-toast";
@@ -27,6 +27,22 @@ type MemberRecord = {
 };
 type Arrear = { amount: number; cleared: boolean; member_record_id: string };
 
+type ResetRequest = { id: string; full_name: string; phone: string; reset_requested_at: string | null };
+
+type FamilyRequest = {
+  id: string;
+  full_name: string;
+  category: "child" | "woman" | "student";
+  phone: string | null;
+  birth_month: number | null;
+  birth_year: number | null;
+  family_id: string | null;
+  submitted_by_profile_id: string;
+  created_at: string;
+  profiles: { full_name: string } | null;
+  families: { family_name: string } | null;
+};
+
 const STATUS_LABELS: Record<string, string> = {
   active: "Active", dormant: "Dormant", suspended: "Suspended", left_welfare: "Left welfare",
 };
@@ -45,42 +61,39 @@ const AdminOverview = () => {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const branchAdminIdsKey = branchAdminIds.join(",");
+  // Requests States
+  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
+  const [approving, setApproving] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [pwFormat, setPwFormat] = useState<"year" | "mmdd">("year");
+  const [familyRequests, setFamilyRequests] = useState<FamilyRequest[]>([]);
+  const [processingRequest, setProcessingRequest] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
     (async () => {
       const [{ data: brs, error: brsErr }, { data: recs, error: recsErr }, { data: arr, error: arrErr }] = await Promise.all([
         supabase.from("branches").select("*").order("name"),
         supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
         supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
       ]);
-      
-      if (!isMounted) return;
-
       if (brsErr || recsErr || arrErr) {
         toast({ title: "Failed to load dashboard data", description: (brsErr ?? recsErr ?? arrErr)?.message, variant: "destructive" });
         setLoading(false);
         return;
       }
-      
       let allBranches = (brs as Branch[]) || [];
       let allRecs = (recs as MemberRecord[]) || [];
-      
       if (branchScoped) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
         allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
       }
       const recIds = new Set(allRecs.map((r) => r.id));
-      
       setBranches(allBranches);
       setRecords(allRecs);
       setArrears(((arr as Arrear[]) || []).filter((a) => recIds.has(a.member_record_id)));
       setLoading(false);
     })();
-
-    return () => { isMounted = false; };
-  }, [branchScoped, branchAdminIdsKey]);
+  }, [branchScoped, branchAdminIds]);
 
   const totalArrears = useMemo(() => arrears.reduce((s, a) => s + Number(a.amount), 0), [arrears]);
   const arrearsByMember = useMemo(() => {
@@ -88,7 +101,6 @@ const AdminOverview = () => {
     for (const a of arrears) m[a.member_record_id] = (m[a.member_record_id] || 0) + Number(a.amount);
     return m;
   }, [arrears]);
-  
   const arrearsByStatus = useMemo(() => {
     const m: Record<string, { total: number; count: number }> = {};
     STATUS_KEYS.forEach((k) => (m[k] = { total: 0, count: 0 }));
@@ -132,15 +144,12 @@ const AdminOverview = () => {
   const exportAll = async () => {
     setExporting(true);
     try { await downloadMembersExcel(null, "kaler-members-all"); }
-    catch (e: any) { toast({ title: "Export failed", description: e.message, variant: "destructive" }); }
+    catch (e: unknown) { 
+      const errMsg = e instanceof Error ? e.message : "An unknown error occurred";
+      toast({ title: "Export failed", description: errMsg, variant: "destructive" }); 
+    }
     setExporting(false);
   };
-
-  type ResetRequest = { id: string; full_name: string; phone: string; reset_requested_at: string | null };
-  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
-  const [approving, setApproving] = useState<string | null>(null);
-  const [cancelling, setCancelling] = useState<string | null>(null);
-  const [pwFormat, setPwFormat] = useState<"year" | "mmdd">("year");
 
   const loadResetRequests = useCallback(async () => {
     if (!isAdmin) return;
@@ -154,23 +163,90 @@ const AdminOverview = () => {
 
   useEffect(() => { loadResetRequests(); }, [loadResetRequests]);
 
+  const loadFamilyRequests = useCallback(async () => {
+    if (!isAdmin) return;
+    const { data } = await supabase
+      .from("family_requests")
+      .select("id, full_name, category, phone, birth_month, birth_year, family_id, submitted_by_profile_id, created_at, profiles!family_requests_submitted_by_profile_id_fkey(full_name), families(family_name)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+    setFamilyRequests((data as unknown as FamilyRequest[]) || []);
+  }, [isAdmin]);
+
+  useEffect(() => { loadFamilyRequests(); }, [loadFamilyRequests]);
+
   const approveReset = async (profileId: string, fullName: string) => {
+    console.log(`Starting password reset for ${fullName}`);
     setApproving(profileId);
     const { data: mr } = await supabase.from("member_records").select("id").eq("profile_id", profileId).maybeSingle();
     if (!mr?.id) {
       setApproving(null);
-      toast({ title: "No linked member record", description: `Cannot reset ${fullName}'s account from here.`, variant: "destructive" });
+      toast({ title: "No linked member record", description: "Cannot reset this account from here.", variant: "destructive" });
       return;
     }
     const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id, format: pwFormat } });
     setApproving(null);
-    if (error || (data as any)?.error) {
-      toast({ title: "Could not reset", description: (data as any)?.error || error?.message, variant: "destructive" });
+    
+    interface ResetResponse { error?: string; temp_password?: string }
+    const responseData = data as ResetResponse | null;
+
+    if (error || responseData?.error) {
+      toast({ title: "Could not reset", description: responseData?.error || error?.message, variant: "destructive" });
       return;
     }
-    setTempPassword((data as any).temp_password);
+    if (responseData?.temp_password) {
+      setTempPassword(responseData.temp_password);
+    }
     await refreshAuth();
     loadResetRequests();
+  };
+
+  const admitFamilyRequest = async (req: FamilyRequest) => {
+    setProcessingRequest(req.id);
+    try {
+      if (req.category === "child") {
+        const userRes = await supabase.auth.getUser();
+        await supabase.from("family_requests").update({ status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: userRes.data.user?.id }).eq("id", req.id);
+      } else {
+        const branchRes = await supabase.from("member_records").select("branch_id").eq("profile_id", req.submitted_by_profile_id).maybeSingle();
+        const branchId = branchRes.data?.branch_id || null;
+        const { data: newRec, error: recErr } = await supabase.from("member_records").insert({
+          full_name: req.full_name,
+          phone: req.phone || null,
+          category: req.category === "woman" ? "woman" : "student",
+          status: "active",
+          branch_id: branchId,
+          family_id: req.family_id,
+        }).select("id").single();
+        if (recErr || !newRec) throw recErr || new Error("Could not create member record");
+        
+        if (req.category === "student") {
+          await supabase.from("arrears").insert([
+            { member_record_id: newRec.id, type: "subscription", year: new Date().getFullYear(), amount: 200 },
+            { member_record_id: newRec.id, type: "fines_penalties", year: new Date().getFullYear(), amount: 500, funeral_name: "Registration fee" },
+          ]);
+        }
+        const { data: { user: adminUser } } = await supabase.auth.getUser();
+        await supabase.from("family_requests").update({ status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: adminUser?.id, member_record_id: newRec.id }).eq("id", req.id);
+      }
+      toast({ title: `${req.full_name} admitted`, description: req.category === "student" ? "Arrears of Ksh 700 created." : "Added to family." });
+      loadFamilyRequests();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "An unknown error occurred";
+      toast({ title: "Admit failed", description: errMsg, variant: "destructive" });
+    } finally {
+      setProcessingRequest(null);
+    }
+  };
+
+  const rejectFamilyRequest = async (req: FamilyRequest) => {
+    setProcessingRequest(req.id);
+    const { data: { user: adminUser } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("family_requests").update({ status: "rejected", reviewed_at: new Date().toISOString(), reviewed_by: adminUser?.id }).eq("id", req.id);
+    setProcessingRequest(null);
+    if (error) { toast({ title: "Reject failed", description: error.message, variant: "destructive" }); return; }
+    toast({ title: `${req.full_name} request rejected` });
+    loadFamilyRequests();
   };
 
   const confirmCancel = async () => {
@@ -178,13 +254,12 @@ const AdminOverview = () => {
     setCancelling(cancelTarget.id);
     const { error } = await supabase.rpc("cancel_password_reset_request", { _profile_id: cancelTarget.id });
     setCancelling(null);
+    setCancelTarget(null);
     if (error) {
-      setCancelTarget(null);
       toast({ title: "Could not cancel", description: error.message, variant: "destructive" });
       return;
     }
     toast({ title: "Request cancelled" });
-    setCancelTarget(null);
     loadResetRequests();
   };
 
@@ -199,7 +274,7 @@ const AdminOverview = () => {
             <h1 className="font-display text-3xl text-primary">Secretary dashboard</h1>
           </div>
           <Button onClick={exportAll} disabled={exporting} variant="outline">
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Download className="h-4 w-4" /> Download all (Excel)</>}
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Download className="h-4 w-4 mr-2" /> Download all (Excel)</>}
           </Button>
         </div>
 
@@ -287,7 +362,7 @@ const AdminOverview = () => {
                         <Button size="sm" variant="outline" disabled={cancelling === r.id || approving === r.id} onClick={() => setCancelTarget({ id: r.id, name: r.full_name })}>
                           {cancelling === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel"}
                         </Button>
-                        <Button size="sm" variant="hero" disabled={approving === r.id || cancelling === r.id} onClick={() => approveReset(r.id, r.full_name)}>
+                        <Button size="sm" variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={approving === r.id || cancelling === r.id} onClick={() => approveReset(r.id, r.full_name)}>
                           {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
                         </Button>
                       </div>
@@ -295,6 +370,66 @@ const AdminOverview = () => {
                   ))}
                 </ul>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isAdmin && familyRequests.length > 0 && (
+          <Card className="border-orange-400/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-orange-500" /> Family admission requests
+              </CardTitle>
+              <CardDescription>
+                Verify each person offline before admitting. Women and students pending review are listed here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="divide-y">
+                {familyRequests.map((req) => {
+                  const submittedBy = req.profiles?.full_name || "Unknown member";
+                  const familyName = req.families?.family_name || "Unknown family";
+                  const age = req.birth_month && req.birth_year
+                    ? (() => { const today = new Date(); let a = today.getFullYear() - req.birth_year!; if (today.getMonth() + 1 - req.birth_month! < 0) a--; return a; })()
+                    : null;
+                  return (
+                    <li key={req.id} className="py-4 flex items-start justify-between gap-3 flex-wrap">
+                      <div className="space-y-1">
+                        <p className="font-medium text-primary">{req.full_name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {req.category}{age !== null ? ` · Age ${age}` : ""}{req.phone ? ` · ${req.phone}` : ""}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Submitted by <b>{submittedBy}</b> · Family: <b>{familyName}</b>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(req.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={processingRequest === req.id}
+                          onClick={() => rejectFamilyRequest(req)}
+                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                        >
+                          {processingRequest === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserX className="h-4 w-4 mr-1" /> Reject</>}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="bg-accent text-accent-foreground hover:bg-accent/90"
+                          disabled={processingRequest === req.id}
+                          onClick={() => admitFamilyRequest(req)}
+                        >
+                          {processingRequest === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserCheck className="h-4 w-4 mr-1" /> Admit</>}
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </CardContent>
           </Card>
         )}
@@ -348,10 +483,6 @@ const AdminOverview = () => {
               <p className="font-medium text-primary">Mass arrears event</p>
               <p className="text-xs text-muted-foreground">Add a yearly subscription or funeral charge to many members</p>
             </Link>
-            <Link to="/admin/branches" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-              <p className="font-medium text-primary">Branches</p>
-              <p className="text-xs text-muted-foreground">Create, rename or delete branches</p>
-            </Link>
             <Link to="/admin/families" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
               <p className="font-medium text-primary">Families &amp; merge</p>
               <p className="text-xs text-muted-foreground">Group spouses into one family</p>
@@ -377,9 +508,9 @@ const AdminOverview = () => {
             <AlertDialogTitle>Temporary Password Generated</AlertDialogTitle>
             <AlertDialogDescription>
               Copy this password and share it with the member. It will not be shown again.
-              <span className="block mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border text-primary">
+              <div className="mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border">
                 {tempPassword}
-              </span>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
