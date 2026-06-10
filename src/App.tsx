@@ -18,20 +18,23 @@ const RouteFallback = () => (
   </div>
 );
 
-// Lazy-loaded pages
+// Lazy-loaded public pages
 const Login = lazy(() => import("./pages/Login.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Profile = lazy(() => import("./pages/Profile.tsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
-const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
-// Admin pages
+// Lazy-loaded protected user pages
+const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const Profile = lazy(() => import("./pages/Profile.tsx"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword.tsx"));
+
+// Lazy-loaded admin pages
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview.tsx"));
 const AdminMembers = lazy(() => import("./pages/admin/AdminMembers.tsx"));
 const AdminMemberDetail = lazy(() => import("./pages/admin/AdminMemberDetail.tsx"));
 const AdminFamilies = lazy(() => import("./pages/admin/AdminFamilies.tsx"));
+const AdminAllFamilies = lazy(() => import("./pages/admin/AdminAllFamilies.tsx"));
 const AdminBootstrap = lazy(() => import("./pages/admin/AdminBootstrap.tsx"));
 const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.tsx"));
 const AdminImport = lazy(() => import("./pages/admin/AdminImport.tsx"));
@@ -65,22 +68,29 @@ const App = () => {
           <AuthProvider>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
-                {/* Public Routes */}
+                {/* --------------------------------------------------------- */}
+                {/* Public Routes                                             */}
+                {/* --------------------------------------------------------- */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 
-                {/* Protected User Routes */}
+                {/* --------------------------------------------------------- */}
+                {/* Protected User Routes                                     */}
+                {/* --------------------------------------------------------- */}
                 <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
                 <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
                 <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
 
-                {/* Protected Admin Routes */}
+                {/* --------------------------------------------------------- */}
+                {/* Protected Admin Routes                                    */}
+                {/* --------------------------------------------------------- */}
                 <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
                 <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
                 <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
                 <Route path="/admin/families" element={<RequireAdmin><AdminFamilies /></RequireAdmin>} />
+                <Route path="/admin/all-families" element={<RequireAdmin><AdminAllFamilies /></RequireAdmin>} />
                 <Route path="/admin/events" element={<RequireAdmin><AdminEvents /></RequireAdmin>} />
                 <Route path="/admin/import" element={<RequireAdmin><AdminImport /></RequireAdmin>} />
                 <Route path="/admin/bootstrap" element={<RequireAdmin><AdminBootstrap /></RequireAdmin>} />
@@ -88,7 +98,9 @@ const App = () => {
                 <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
                 <Route path="/admin/branches" element={<RequireAdmin><AdminBranches /></RequireAdmin>} />
 
-                {/* 404 */}
+                {/* --------------------------------------------------------- */}
+                {/* Fallback Route                                            */}
+                {/* --------------------------------------------------------- */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
