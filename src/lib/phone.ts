@@ -7,10 +7,10 @@
 export function normalizeKenyanPhone(input: string | null | undefined): string | null {
   if (!input) return null;
 
-  // 1. Extract digits only
+  // Strip all non-numeric characters
   let digits = input.replace(/\D/g, "");
 
-  // 2. Strip country code if present (handles both 254... and accidental 0254...)
+  // Strip country code variants to get the core 9-digit local number
   if (digits.startsWith("254")) {
     digits = digits.slice(3);
   } else if (digits.startsWith("0254")) {
@@ -19,17 +19,21 @@ export function normalizeKenyanPhone(input: string | null | undefined): string |
     digits = digits.slice(1);
   }
 
-  // 3. Ensure the remaining local number is exactly 9 digits
+  // A valid local Kenyan mobile number must be exactly 9 digits long
   if (!/^\d{9}$/.test(digits)) {
     return null;
   }
 
-  // 4. Validate against all current Kenyan mobile prefixes (7XX, 11X, 12X, 13X)
-  // Using string matching to avoid any potential octal/parsing edge cases.
-  const prefix2 = digits.substring(0, 2); 
-  const validPrefixes = ["70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "10", "11", "12", "13"];
+  // Validate prefixes based on Communications Authority of Kenya allocations:
+  // - Legacy numbers: 7XX (700-799)
+  // - Newer numbers: 1XX (100-115, and future-proofing up to 15X)
+  const prefix7 = digits.substring(0, 1); // For '7'
+  const prefix1 = digits.substring(0, 2); // For '10', '11', '12', '13', '14', '15'
 
-  if (!validPrefixes.includes(prefix2)) {
+  const isValid7Series = prefix7 === "7";
+  const isValid1Series = ["10", "11", "12", "13", "14", "15"].includes(prefix1);
+
+  if (!isValid7Series && !isValid1Series) {
     return null;
   }
 
@@ -39,16 +43,20 @@ export function normalizeKenyanPhone(input: string | null | undefined): string |
 /**
  * Convert a normalized E.164 Kenyan phone number to a synthetic email
  * used as the Supabase auth identifier.
+ * e.g. "+254712345678" → "254712345678@members.kalernairobi.local"
  * * @param e164 A strictly validated E.164 phone number (e.g., "+254712345678")
- * @returns A synthetic email string (e.g., "254712345678@kaler.member")
+ * @returns A synthetic email string (e.g., "254712345678@members.kalernairobi.local")
  * @throws Error if the input is not a valid E.164 formatted Kenyan number.
  */
 export function phoneToAuthEmail(e164: string): string {
-  // Defensive check to ensure we don't generate invalid auth emails from malformed data
-  if (!/^\+254\d{9}$/.test(e164)) {
+  const trimmed = (e164 || "").trim();
+
+  // Enforce rigid E.164 format check before processing
+  if (!/^\+254\d{9}$/.test(trimmed)) {
     throw new Error(`Invalid E.164 phone number format provided: ${e164}`);
   }
-  
-  const cleanNumber = e164.replace(/^\+/, "");
-  return `${cleanNumber}@kaler.member`;
+
+  // Strip the leading '+' and append the internal domain
+  const cleanNumber = trimmed.slice(1); 
+  return `${cleanNumber}@members.kalernairobi.local`;
 }
