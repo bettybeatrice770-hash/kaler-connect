@@ -40,7 +40,7 @@ const AdminFamilies = () => {
 
       let allBranches = (brs as Branch[]) || [];
       let allRecs = (recs as MRec[]) || [];
-      
+
       if (branchScoped) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
         allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
@@ -50,57 +50,84 @@ const AdminFamilies = () => {
       setRecords(allRecs);
       setFamilies((fams as Family[]) || []);
     } catch (error) {
-      console.error("Error loading application state maps:", error);
-      toast({ title: "Error", description: "Failed to pull contextual member directories.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to load members.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { 
-    load(); 
-  }, [branchScoped, branchAdminIds.join(",")]);
+  useEffect(() => {
+    load();
+  }, [branchScoped, branchAdminIds]);
 
-  const branchName = (id: string | null) => branches.find(b => b.id === id)?.name ?? "—";
-  const familyOf = (id: string | null) => families.find(f => f.id === id)?.family_name;
+  // Create highly efficient $O(1)$ lookups for the map render
+  const branchMap = useMemo(() => new Map(branches.map(b => [b.id, b.name])), [branches]);
+  const familyMap = useMemo(() => new Map(families.map(f => [f.id, f.family_name])), [families]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return records;
-    return records.filter(r => r.full_name.toLowerCase().includes(q) || (r.phone || "").includes(q));
+    return records.filter(r => 
+      r.full_name.toLowerCase().includes(q) || 
+      (r.phone || "").includes(q)
+    );
   }, [records, search]);
 
   const toggle = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
-    setSelected(next);
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
+  // Detect if any selected member already belongs to a family
+  const selectedRecords = useMemo(() => records.filter(r => selected.has(r.id)), [records, selected]);
+  const existingFamilyId = useMemo(() => selectedRecords.find(r => r.family_id)?.family_id ?? null, [selectedRecords]);
+  const existingFamilyName = useMemo(() => existingFamilyId ? familyMap.get(existingFamilyId) : null, [existingFamilyId, familyMap]);
+
   const merge = async () => {
-    if (selected.size < 2) return toast({ title: "Select at least 2 members", variant: "destructive" });
-    if (!familyName.trim()) return toast({ title: "Enter a family name", variant: "destructive" });
-    
+    if (selected.size < 2) {
+      return toast({ title: "Select at least 2 members", variant: "destructive" });
+    }
+
+    if (!existingFamilyId && !familyName.trim()) {
+      return toast({ title: "Enter a family name", variant: "destructive" });
+    }
+
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("merge-family", {
-        body: { member_record_ids: Array.from(selected), family_name: familyName.trim() },
-      });
-      
+      const body: any = { member_record_ids: Array.from(selected) };
+      if (existingFamilyId) {
+        body.existing_family_id = existingFamilyId;
+      } else {
+        body.family_name = familyName.trim();
+      }
+
+      const { data, error } = await supabase.functions.invoke("merge-family", { body });
       if (error || (data as any)?.error) {
-        toast({ title: "Merge failed", description: (data as any)?.error || error?.message, variant: "destructive" });
+        toast({ 
+          title: "Merge failed", 
+          description: (data as any)?.error || error?.message, 
+          variant: "destructive" 
+        });
         return;
       }
-      
-      toast({ title: "Family created", description: `${selected.size} members linked into "${familyName}".` });
+
+      const msg = existingFamilyId
+        ? `Members added to "${existingFamilyName}" family.`
+        : `${selected.size} members linked into "${familyName.trim()}".`;
+        
+      toast({ title: "Done", description: msg });
       setSelected(new Set());
       setFamilyName("");
       load();
     } catch (err: any) {
-      toast({ title: "Error encountered", description: err.message, variant: "destructive" });
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -121,7 +148,9 @@ const AdminFamilies = () => {
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="sm">
-            <Link to="/admin"><ChevronLeft className="h-4 w-4" /> Back</Link>
+            <Link to="/admin">
+              <ChevronLeft className="h-4 w-4" /> Back
+            </Link>
           </Button>
           <div>
             <h1 className="font-display text-3xl text-primary">Merge into a family</h1>
@@ -132,32 +161,44 @@ const AdminFamilies = () => {
           </div>
         </div>
 
-        {isAdmin && (
+        {/* Action card accessible to authorized users */}
+        {(isAdmin || isBranchRep || isOfficer) && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4" /> Family name
+                <Users className="h-4 w-4" /> Family Actions
               </CardTitle>
-              <CardDescription>This name will appear on the dashboard for all family members.</CardDescription>
+              <CardDescription>
+                {existingFamilyId
+                  ? `One or more selected members already belong to "${existingFamilyName}". The others will be added to that family.`
+                  : "None of the selected members have a family yet. Enter a name to create one."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1 flex-1 min-w-0">
-                <Label htmlFor="family-name-input">Family name</Label>
-                <Input
-                  id="family-name-input"
-                  value={familyName}
-                  onChange={e => setFamilyName(e.target.value)}
-                  placeholder="e.g. Elijah Orwa Family"
-                />
-              </div>
+              {existingFamilyId ? (
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-primary">{existingFamilyName}</p>
+                  <p className="text-xs text-muted-foreground">Existing family — no new family will be created</p>
+                </div>
+              ) : (
+                <div className="space-y-1 flex-1 min-w-0">
+                  <Label htmlFor="family-name-input">Family name</Label>
+                  <Input
+                    id="family-name-input"
+                    value={familyName}
+                    onChange={e => setFamilyName(e.target.value)}
+                    placeholder="e.g. Elijah Orwa Family"
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <Badge variant="secondary">{selected.size} selected</Badge>
                 <Button
                   onClick={merge}
-                  disabled={busy || selected.size < 2 || !familyName.trim()}
+                  disabled={busy || selected.size < 2 || (!existingFamilyId && !familyName.trim())}
                   variant="hero"
                 >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Merge"}
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : existingFamilyId ? "Add to family" : "Create & merge"}
                 </Button>
               </div>
             </CardContent>
@@ -176,15 +217,27 @@ const AdminFamilies = () => {
           </CardHeader>
           <CardContent className="divide-y">
             {filtered.map(r => {
-              const fam = familyOf(r.family_id);
+              const fam = r.family_id ? familyMap.get(r.family_id) : null;
               return (
-                <label key={r.id} className="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-muted/40 px-2 rounded transition-colors">
-                  <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                <label 
+                  key={r.id} 
+                  className="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-muted/40 px-2 rounded transition-colors"
+                >
+                  <Checkbox 
+                    checked={selected.has(r.id)} 
+                    onCheckedChange={() => toggle(r.id)} 
+                  />
                   <div className="flex-1">
-                    <p className="font-medium text-sm sm:text-base">{r.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{branchName(r.branch_id)} · {r.phone || "no phone"}</p>
+                    <p className="font-medium text-sm">{r.full_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {r.branch_id ? branchMap.get(r.branch_id) : "—"} · {r.phone || "no phone"}
+                    </p>
                   </div>
-                  {fam && <Badge variant="outline" className="text-xs max-w-[150px] truncate">{fam}</Badge>}
+                  {fam && (
+                    <Badge variant="outline" className="text-xs max-w-[150px] truncate">
+                      {fam}
+                    </Badge>
+                  )}
                 </label>
               );
             })}
