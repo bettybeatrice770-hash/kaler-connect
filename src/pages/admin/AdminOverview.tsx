@@ -4,7 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, Shield, Download, KeyRound, UserPlus, UserCheck, UserX } from "lucide-react";
+import { 
+  Loader2, Users, AlertTriangle, MapPin, Wallet, Coins, 
+  Shield, Download, KeyRound, Copy, Check, UserPlus, 
+  UserCheck, UserX 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadMembersExcel } from "@/lib/exportExcel";
 import { toast } from "@/hooks/use-toast";
@@ -13,105 +17,162 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Branch = { id: string; name: string };
-type MemberRecord = {
-  id: string;
+// --- Interfaces & Types ---
+interface Branch { 
+  id: string; 
+  name: string; 
+}
+
+interface MemberRecord {
+  id: string; 
   full_name: string;
   category: "full_member" | "student" | "woman";
   status: "active" | "dormant" | "suspended" | "left_welfare";
-  branch_id: string | null;
+  branch_id: string | null; 
   profile_id: string | null;
-  development_paid: number | null;
-  fpf_paid: number | null;
+  development_paid: number | null; 
+  fpf_paid: number | null; 
   advance_subscription_paid: number | null;
-};
-type Arrear = { amount: number; cleared: boolean; member_record_id: string };
+}
 
-type ResetRequest = { id: string; full_name: string; phone: string; reset_requested_at: string | null };
+interface Arrear { 
+  amount: number; 
+  cleared: boolean; 
+  member_record_id: string; 
+}
 
-type FamilyRequest = {
-  id: string;
-  full_name: string;
+interface ResetRequest { 
+  id: string; 
+  full_name: string; 
+  phone: string; 
+  reset_requested_at: string | null; 
+}
+
+interface FamilyRequest {
+  id: string; 
+  full_name: string; 
   category: "child" | "woman" | "student";
-  phone: string | null;
-  birth_month: number | null;
+  phone: string | null; 
+  birth_month: number | null; 
   birth_year: number | null;
-  family_id: string | null;
-  submitted_by_profile_id: string;
+  family_id: string | null; 
+  submitted_by_profile_id: string; 
   created_at: string;
   profiles: { full_name: string } | null;
   families: { family_name: string } | null;
+}
+
+interface StatusBreakdownItem { 
+  count: number; 
+  arrears: number; 
+}
+
+const STATUS_LABELS: Record<MemberRecord["status"], string> = {
+  active: "Active", 
+  dormant: "Dormant", 
+  suspended: "Suspended", 
+  left_welfare: "Left welfare",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "Active", dormant: "Dormant", suspended: "Suspended", left_welfare: "Left welfare",
-};
-const STATUS_KEYS = ["active", "dormant", "suspended", "left_welfare"];
+const STATUS_KEYS: MemberRecord["status"][] = ["active", "dormant", "suspended", "left_welfare"];
 
 const AdminOverview = () => {
   const { isAdmin, isOfficer, isBranchRep, branchAdminIds, refreshAuth } = useAuth();
   const branchScoped = isBranchRep && !isAdmin && !isOfficer;
+
+  // --- States ---
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [records, setRecords] = useState<MemberRecord[]>([]);
   const [arrears, setArrears] = useState<Arrear[]>([]);
+  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
+  const [familyRequests, setFamilyRequests] = useState<FamilyRequest[]>([]);
+
   const [exporting, setExporting] = useState(false);
-  
-  // Modal states
+  const [approving, setApproving] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [processingRequest, setProcessingRequest] = useState<string | null>(null);
+  const [pwFormat, setPwFormat] = useState<"year" | "mmdd">("year");
+  const [copied, setCopied] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
-  // Requests States
-  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
-  const [approving, setApproving] = useState<string | null>(null);
-  const [cancelling, setCancelling] = useState<string | null>(null);
-  const [pwFormat, setPwFormat] = useState<"year" | "mmdd">("year");
-  const [familyRequests, setFamilyRequests] = useState<FamilyRequest[]>([]);
-  const [processingRequest, setProcessingRequest] = useState<string | null>(null);
+  const branchAdminIdsString = useMemo(() => branchAdminIds.join(","), [branchAdminIds]);
 
-  useEffect(() => {
-    (async () => {
-      const [{ data: brs, error: brsErr }, { data: recs, error: recsErr }, { data: arr, error: arrErr }] = await Promise.all([
-        supabase.from("branches").select("*").order("name"),
+  // --- Data Loading ---
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const queries: any[] = [
+        supabase.from("branches").select("id, name").order("name"),
         supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
         supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
-      ]);
-      if (brsErr || recsErr || arrErr) {
-        toast({ title: "Failed to load dashboard data", description: (brsErr ?? recsErr ?? arrErr)?.message, variant: "destructive" });
-        setLoading(false);
-        return;
+      ];
+      
+      if (isAdmin) {
+        queries.push(
+          supabase.from("profiles").select("id, full_name, phone, reset_requested_at").eq("reset_requested", true).order("reset_requested_at", { ascending: false }),
+          supabase.from("family_requests").select("id, full_name, category, phone, birth_month, birth_year, family_id, submitted_by_profile_id, created_at, profiles!family_requests_submitted_by_profile_id_fkey(full_name), families(family_name)").eq("status", "pending").order("created_at", { ascending: true })
+        );
       }
-      let allBranches = (brs as Branch[]) || [];
-      let allRecs = (recs as MemberRecord[]) || [];
+
+      const results = await Promise.all(queries);
+      const combinedError = results.find(r => r.error)?.error;
+      if (combinedError) throw combinedError;
+
+      let allBranches = (results[0].data as Branch[]) || [];
+      let allRecs = (results[1].data as MemberRecord[]) || [];
+      const allArrears = (results[2].data as Arrear[]) || [];
+      const allResets = isAdmin ? (results[3].data as ResetRequest[]) || [] : [];
+      const allFamilyReqs = isAdmin ? (results[4].data as unknown as FamilyRequest[]) || [] : [];
+
       if (branchScoped) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
         allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
       }
+
       const recIds = new Set(allRecs.map((r) => r.id));
       setBranches(allBranches);
       setRecords(allRecs);
-      setArrears(((arr as Arrear[]) || []).filter((a) => recIds.has(a.member_record_id)));
+      setArrears(allArrears.filter((a) => recIds.has(a.member_record_id)));
+      setResetRequests(allResets);
+      setFamilyRequests(allFamilyReqs);
+    } catch (error: any) {
+      toast({ title: "Failed to load dashboard data", description: error?.message, variant: "destructive" });
+    } finally {
       setLoading(false);
-    })();
-  }, [branchScoped, branchAdminIds]);
+    }
+  }, [branchScoped, branchAdminIds, isAdmin]);
 
+  useEffect(() => { 
+    loadDashboardData(); 
+  }, [loadDashboardData, branchAdminIdsString]);
+
+  // --- Memoized Aggregations ---
   const totalArrears = useMemo(() => arrears.reduce((s, a) => s + Number(a.amount), 0), [arrears]);
+  
   const arrearsByMember = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const a of arrears) m[a.member_record_id] = (m[a.member_record_id] || 0) + Number(a.amount);
-    return m;
+    const map: Record<string, number> = {};
+    for (const a of arrears) {
+      map[a.member_record_id] = (map[a.member_record_id] || 0) + Number(a.amount);
+    }
+    return map;
   }, [arrears]);
+
   const arrearsByStatus = useMemo(() => {
-    const m: Record<string, { total: number; count: number }> = {};
-    STATUS_KEYS.forEach((k) => (m[k] = { total: 0, count: 0 }));
+    const map: Record<MemberRecord["status"], { total: number; count: number }> = {
+      active: { total: 0, count: 0 }, 
+      dormant: { total: 0, count: 0 },
+      suspended: { total: 0, count: 0 }, 
+      left_welfare: { total: 0, count: 0 },
+    };
     for (const r of records) {
       const owed = arrearsByMember[r.id] || 0;
-      if (owed > 0 && m[r.status]) {
-        m[r.status].total += owed;
-        m[r.status].count += 1;
+      if (owed > 0 && map[r.status]) { 
+        map[r.status].total += owed; 
+        map[r.status].count += 1; 
       }
     }
-    return m;
+    return map;
   }, [records, arrearsByMember]);
 
   const devTotal = useMemo(() => records.reduce((s, r) => s + Number(r.development_paid || 0), 0), [records]);
@@ -119,105 +180,108 @@ const AdminOverview = () => {
   const fefTotal = useMemo(() => records.reduce((s, r) => s + Number(r.fpf_paid || 0), 0), [records]);
   const fefCount = useMemo(() => records.filter((r) => Number(r.fpf_paid) > 0).length, [records]);
   const advTotal = useMemo(() => records.reduce((s, r) => s + Number(r.advance_subscription_paid || 0), 0), [records]);
-  
+
   const byBranch = useMemo(() => branches.map((b) => {
-    const rs = records.filter((r) => r.branch_id === b.id);
-    const statusBreakdown: Record<string, { count: number; arrears: number }> = {};
-    STATUS_KEYS.forEach((k) => (statusBreakdown[k] = { count: 0, arrears: 0 }));
-    for (const r of rs) {
+    const bm = records.filter((r) => r.branch_id === b.id);
+    let full = 0, women = 0, students = 0, active = 0, dormant = 0;
+    const statusBreakdown: Record<MemberRecord["status"], StatusBreakdownItem> = {
+      active: { count: 0, arrears: 0 }, 
+      dormant: { count: 0, arrears: 0 },
+      suspended: { count: 0, arrears: 0 }, 
+      left_welfare: { count: 0, arrears: 0 },
+    };
+    for (const r of bm) {
+      if (r.category === "full_member") full++;
+      else if (r.category === "woman") women++;
+      else if (r.category === "student") students++;
+      
+      if (r.status === "active") active++;
+      else if (r.status === "dormant") dormant++;
+      
       if (statusBreakdown[r.status]) {
         statusBreakdown[r.status].count += 1;
         statusBreakdown[r.status].arrears += arrearsByMember[r.id] || 0;
       }
     }
-    return {
-      ...b, total: rs.length,
-      full: rs.filter((r) => r.category === "full_member").length,
-      women: rs.filter((r) => r.category === "woman").length,
-      students: rs.filter((r) => r.category === "student").length,
-      active: rs.filter((r) => r.status === "active").length,
-      dormant: rs.filter((r) => r.status === "dormant").length,
-      statusBreakdown,
-    };
+    return { ...b, total: bm.length, full, women, students, active, dormant, statusBreakdown };
   }), [branches, records, arrearsByMember]);
 
+  // --- Handlers ---
   const exportAll = async () => {
     setExporting(true);
-    try { await downloadMembersExcel(null, "kaler-members-all"); }
-    catch (e: unknown) { 
-      const errMsg = e instanceof Error ? e.message : "An unknown error occurred";
-      toast({ title: "Export failed", description: errMsg, variant: "destructive" }); 
+    try { 
+      await downloadMembersExcel(null, "kaler-members-all"); 
+    } catch (e: any) { 
+      toast({ title: "Export failed", description: e.message, variant: "destructive" }); 
+    } finally { 
+      setExporting(false); 
     }
-    setExporting(false);
   };
 
-  const loadResetRequests = useCallback(async () => {
-    if (!isAdmin) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, phone, reset_requested_at")
-      .eq("reset_requested", true)
-      .order("reset_requested_at", { ascending: false });
-    setResetRequests((data as ResetRequest[]) || []);
-  }, [isAdmin]);
-
-  useEffect(() => { loadResetRequests(); }, [loadResetRequests]);
-
-  const loadFamilyRequests = useCallback(async () => {
-    if (!isAdmin) return;
-    const { data } = await supabase
-      .from("family_requests")
-      .select("id, full_name, category, phone, birth_month, birth_year, family_id, submitted_by_profile_id, created_at, profiles!family_requests_submitted_by_profile_id_fkey(full_name), families(family_name)")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-    setFamilyRequests((data as unknown as FamilyRequest[]) || []);
-  }, [isAdmin]);
-
-  useEffect(() => { loadFamilyRequests(); }, [loadFamilyRequests]);
-
-  const approveReset = async (profileId: string, fullName: string) => {
-    console.log(`Starting password reset for ${fullName}`);
+  const approveReset = async (profileId: string) => {
     setApproving(profileId);
-    const { data: mr } = await supabase.from("member_records").select("id").eq("profile_id", profileId).maybeSingle();
-    if (!mr?.id) {
-      setApproving(null);
-      toast({ title: "No linked member record", description: "Cannot reset this account from here.", variant: "destructive" });
-      return;
+    try {
+      const { data: mr } = await supabase.from("member_records").select("id").eq("profile_id", profileId).maybeSingle();
+      if (!mr?.id) { 
+        toast({ title: "No linked member record", variant: "destructive" }); 
+        return; 
+      }
+      const { data, error } = await supabase.functions.invoke("reset-member-password", { 
+        body: { member_record_id: mr.id, format: pwFormat } 
+      });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+      
+      setTempPassword((data as any).temp_password);
+      setCopied(false);
+      await refreshAuth();
+      await loadDashboardData();
+    } catch (err: any) {
+      toast({ title: "Could not reset", description: err.message, variant: "destructive" });
+    } finally { 
+      setApproving(null); 
     }
-    const { data, error } = await supabase.functions.invoke("reset-member-password", { body: { member_record_id: mr.id, format: pwFormat } });
-    setApproving(null);
-    
-    interface ResetResponse { error?: string; temp_password?: string }
-    const responseData = data as ResetResponse | null;
+  };
 
-    if (error || responseData?.error) {
-      toast({ title: "Could not reset", description: responseData?.error || error?.message, variant: "destructive" });
-      return;
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(cancelTarget.id);
+    try {
+      const { error } = await supabase.rpc("cancel_password_reset_request", { _profile_id: cancelTarget.id });
+      if (error) throw error;
+      toast({ title: "Request cancelled" });
+      await loadDashboardData();
+    } catch (error: any) {
+      toast({ title: "Could not cancel", description: error.message, variant: "destructive" });
+    } finally { 
+      setCancelling(null); 
+      setCancelTarget(null); 
     }
-    if (responseData?.temp_password) {
-      setTempPassword(responseData.temp_password);
-    }
-    await refreshAuth();
-    loadResetRequests();
   };
 
   const admitFamilyRequest = async (req: FamilyRequest) => {
     setProcessingRequest(req.id);
     try {
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+
       if (req.category === "child") {
-        const userRes = await supabase.auth.getUser();
-        await supabase.from("family_requests").update({ status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: userRes.data.user?.id }).eq("id", req.id);
+        await supabase.from("family_requests").update({ 
+          status: "approved", 
+          reviewed_at: new Date().toISOString(), 
+          reviewed_by: adminUser?.id 
+        }).eq("id", req.id);
       } else {
         const branchRes = await supabase.from("member_records").select("branch_id").eq("profile_id", req.submitted_by_profile_id).maybeSingle();
         const branchId = branchRes.data?.branch_id || null;
+        
         const { data: newRec, error: recErr } = await supabase.from("member_records").insert({
-          full_name: req.full_name,
+          full_name: req.full_name, 
           phone: req.phone || null,
           category: req.category === "woman" ? "woman" : "student",
-          status: "active",
-          branch_id: branchId,
+          status: "active", 
+          branch_id: branchId, 
           family_id: req.family_id,
         }).select("id").single();
+        
         if (recErr || !newRec) throw recErr || new Error("Could not create member record");
         
         if (req.category === "student") {
@@ -226,48 +290,68 @@ const AdminOverview = () => {
             { member_record_id: newRec.id, type: "fines_penalties", year: new Date().getFullYear(), amount: 500, funeral_name: "Registration fee" },
           ]);
         }
-        const { data: { user: adminUser } } = await supabase.auth.getUser();
-        await supabase.from("family_requests").update({ status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: adminUser?.id, member_record_id: newRec.id }).eq("id", req.id);
+        
+        await supabase.from("family_requests").update({ 
+          status: "approved", 
+          reviewed_at: new Date().toISOString(), 
+          reviewed_by: adminUser?.id, 
+          member_record_id: newRec.id 
+        }).eq("id", req.id);
       }
-      toast({ title: `${req.full_name} admitted`, description: req.category === "student" ? "Arrears of Ksh 700 created." : "Added to family." });
-      loadFamilyRequests();
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "An unknown error occurred";
-      toast({ title: "Admit failed", description: errMsg, variant: "destructive" });
-    } finally {
-      setProcessingRequest(null);
+      toast({ 
+        title: `${req.full_name} admitted`, 
+        description: req.category === "student" ? "Arrears of Ksh 700 created." : "Added to family." 
+      });
+      await loadDashboardData();
+    } catch (err: any) {
+      toast({ title: "Admit failed", description: err.message, variant: "destructive" });
+    } finally { 
+      setProcessingRequest(null); 
     }
   };
 
   const rejectFamilyRequest = async (req: FamilyRequest) => {
     setProcessingRequest(req.id);
-    const { data: { user: adminUser } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("family_requests").update({ status: "rejected", reviewed_at: new Date().toISOString(), reviewed_by: adminUser?.id }).eq("id", req.id);
-    setProcessingRequest(null);
-    if (error) { toast({ title: "Reject failed", description: error.message, variant: "destructive" }); return; }
-    toast({ title: `${req.full_name} request rejected` });
-    loadFamilyRequests();
-  };
-
-  const confirmCancel = async () => {
-    if (!cancelTarget) return;
-    setCancelling(cancelTarget.id);
-    const { error } = await supabase.rpc("cancel_password_reset_request", { _profile_id: cancelTarget.id });
-    setCancelling(null);
-    setCancelTarget(null);
-    if (error) {
-      toast({ title: "Could not cancel", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("family_requests").update({ 
+        status: "rejected", 
+        reviewed_at: new Date().toISOString(), 
+        reviewed_by: adminUser?.id 
+      }).eq("id", req.id);
+      
+      if (error) throw error;
+      toast({ title: `${req.full_name} request rejected` });
+      await loadDashboardData();
+    } catch (error: any) {
+      toast({ title: "Reject failed", description: error.message, variant: "destructive" });
+    } finally {
+      setProcessingRequest(null);
     }
-    toast({ title: "Request cancelled" });
-    loadResetRequests();
   };
 
-  if (loading) return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div></PortalLayout>;
+  const copyToClipboard = () => {
+    if (tempPassword) { 
+      navigator.clipboard.writeText(tempPassword); 
+      setCopied(true); 
+      toast({ title: "Copied to clipboard" }); 
+    }
+  };
+
+  if (loading) {
+    return (
+      <PortalLayout>
+        <div className="grid place-items-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      </PortalLayout>
+    );
+  }
 
   return (
     <PortalLayout>
       <div className="space-y-8">
+        {/* Header Dashboard section */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <p className="text-sm font-semibold tracking-widest uppercase text-accent">Admin</p>
@@ -278,33 +362,47 @@ const AdminOverview = () => {
           </Button>
         </div>
 
+        {/* Aggregate Cards Summary */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2"><Users className="h-4 w-4" />Total members</CardDescription></CardHeader>
-            <CardContent><p className="text-3xl font-display text-primary">{records.length}</p></CardContent>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2"><Users className="h-4 w-4" />Total members</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-display text-primary">{records.length}</p>
+            </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2"><MapPin className="h-4 w-4" />Branches</CardDescription></CardHeader>
-            <CardContent><p className="text-3xl font-display text-primary">{branches.length}</p></CardContent>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2"><MapPin className="h-4 w-4" />Branches</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-display text-primary">{branches.length}</p>
+            </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2 text-green-700"><Wallet className="h-4 w-4" />Development Fund</CardDescription></CardHeader>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-green-700"><Wallet className="h-4 w-4" />Development Fund</CardDescription>
+            </CardHeader>
             <CardContent>
               <p className="text-2xl font-display text-green-700">Ksh {devTotal.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">{devCount} contributors</p>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardDescription className="flex items-center gap-2 text-green-700"><Coins className="h-4 w-4" />FEF</CardDescription></CardHeader>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-green-700"><Coins className="h-4 w-4" />FEF</CardDescription>
+            </CardHeader>
             <CardContent>
               <p className="text-2xl font-display text-green-700">Ksh {fefTotal.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground mt-1">{fefCount} contributors</p>
-              <p className="text-xs text-muted-foreground mt-1">adv.Contribution</p>
-              <p className="text-3xl font-display text-green-700">Ksh {advTotal.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-2 font-semibold">Adv. Contribution</p>
+              <p className="text-2xl font-display text-green-700">Ksh {advTotal.toLocaleString()}</p>
             </CardContent>
           </Card>
         </div>
 
+        {/* Arrears Summary Section */}
         <Card className="border-destructive/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -330,6 +428,7 @@ const AdminOverview = () => {
           </CardContent>
         </Card>
 
+        {/* Password Resets Section */}
         {isAdmin && (
           <Card className="border-accent/40">
             <CardHeader>
@@ -337,7 +436,7 @@ const AdminOverview = () => {
               <CardDescription>Verify each member offline (e.g. by phone) before approving.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-3 text-sm mb-2">
                 <span className="text-muted-foreground">Temp password format:</span>
                 <label className="flex items-center gap-1 cursor-pointer">
                   <input type="radio" checked={pwFormat === "year"} onChange={() => setPwFormat("year")} />
@@ -362,7 +461,7 @@ const AdminOverview = () => {
                         <Button size="sm" variant="outline" disabled={cancelling === r.id || approving === r.id} onClick={() => setCancelTarget({ id: r.id, name: r.full_name })}>
                           {cancelling === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel"}
                         </Button>
-                        <Button size="sm" variant="default" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={approving === r.id || cancelling === r.id} onClick={() => approveReset(r.id, r.full_name)}>
+                        <Button size="sm" variant="hero" disabled={approving === r.id || cancelling === r.id} onClick={() => approveReset(r.id)}>
                           {approving === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve & issue temp password"}
                         </Button>
                       </div>
@@ -374,15 +473,12 @@ const AdminOverview = () => {
           </Card>
         )}
 
+        {/* Family Admission Handling */}
         {isAdmin && familyRequests.length > 0 && (
           <Card className="border-orange-400/40">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-orange-500" /> Family admission requests
-              </CardTitle>
-              <CardDescription>
-                Verify each person offline before admitting. Women and students pending review are listed here.
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-orange-500" /> Family admission requests</CardTitle>
+              <CardDescription>Verify each person offline before admitting. Women and students pending review are listed here.</CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="divide-y">
@@ -390,39 +486,26 @@ const AdminOverview = () => {
                   const submittedBy = req.profiles?.full_name || "Unknown member";
                   const familyName = req.families?.family_name || "Unknown family";
                   const age = req.birth_month && req.birth_year
-                    ? (() => { const today = new Date(); let a = today.getFullYear() - req.birth_year!; if (today.getMonth() + 1 - req.birth_month! < 0) a--; return a; })()
+                    ? (() => { 
+                        const today = new Date(); 
+                        let a = today.getFullYear() - req.birth_year!; 
+                        if (today.getMonth() + 1 - req.birth_month! < 0) a--; 
+                        return a; 
+                      })()
                     : null;
                   return (
                     <li key={req.id} className="py-4 flex items-start justify-between gap-3 flex-wrap">
                       <div className="space-y-1">
                         <p className="font-medium text-primary">{req.full_name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {req.category}{age !== null ? ` · Age ${age}` : ""}{req.phone ? ` · ${req.phone}` : ""}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Submitted by <b>{submittedBy}</b> · Family: <b>{familyName}</b>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(req.created_at).toLocaleDateString()}
-                        </p>
+                        <p className="text-xs text-muted-foreground capitalize">{req.category}{age !== null ? ` · Age ${age}` : ""}{req.phone ? ` · ${req.phone}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">Submitted by <b>{submittedBy}</b> · Family: <b>{familyName}</b></p>
+                        <p className="text-xs text-muted-foreground">{new Date(req.created_at).toLocaleDateString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={processingRequest === req.id}
-                          onClick={() => rejectFamilyRequest(req)}
-                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                        >
+                        <Button size="sm" variant="outline" disabled={processingRequest === req.id} onClick={() => rejectFamilyRequest(req)} className="text-destructive border-destructive/40 hover:bg-destructive/10">
                           {processingRequest === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserX className="h-4 w-4 mr-1" /> Reject</>}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="bg-accent text-accent-foreground hover:bg-accent/90"
-                          disabled={processingRequest === req.id}
-                          onClick={() => admitFamilyRequest(req)}
-                        >
+                        <Button size="sm" variant="hero" disabled={processingRequest === req.id} onClick={() => admitFamilyRequest(req)}>
                           {processingRequest === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserCheck className="h-4 w-4 mr-1" /> Admit</>}
                         </Button>
                       </div>
@@ -434,6 +517,7 @@ const AdminOverview = () => {
           </Card>
         )}
 
+        {/* Branches Grid Navigation */}
         <Card>
           <CardHeader>
             <CardTitle>Branches</CardTitle>
@@ -457,7 +541,7 @@ const AdminOverview = () => {
                     const colorClass = k === "active" ? "text-green-700" : "text-destructive";
                     return (
                       <div key={k} className={`flex items-center justify-between ${colorClass}`}>
-                        <span>{STATUS_LABELS[k]} {sb.count}</span>
+                        <span>{STATUS_LABELS[k]} ({sb.count})</span>
                         <span>Arrears – Ksh {sb.arrears.toLocaleString()}</span>
                       </div>
                     );
@@ -468,65 +552,47 @@ const AdminOverview = () => {
           </CardContent>
         </Card>
 
+        {/* Management Quick Link Actions */}
         <Card>
           <CardHeader><CardTitle>Quick actions</CardTitle></CardHeader>
           <CardContent className="grid sm:grid-cols-2 gap-3">
-            <Link to="/admin/members" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-              <p className="font-medium text-primary">All members</p>
-              <p className="text-xs text-muted-foreground">Search, edit, add new members</p>
-            </Link>
-            <Link to="/admin/import" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-              <p className="font-medium text-primary">Bulk Excel import</p>
-              <p className="text-xs text-muted-foreground">Upload .xlsx to update everyone at once</p>
-            </Link>
-            <Link to="/admin/events" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-              <p className="font-medium text-primary">Mass arrears event</p>
-              <p className="text-xs text-muted-foreground">Add a yearly subscription or funeral charge to many members</p>
-            </Link>
-            <Link to="/admin/families" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-              <p className="font-medium text-primary">Families &amp; merge</p>
-              <p className="text-xs text-muted-foreground">Group spouses into one family</p>
-            </Link>
-            {isAdmin && (
-              <Link to="/admin/audit" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-                <p className="font-medium text-primary">Audit log</p>
-                <p className="text-xs text-muted-foreground">Who changed what, when</p>
-              </Link>
-            )}
-            <Link to="/admin/roles" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors">
-              <p className="font-medium text-primary flex items-center gap-2"><Shield className="h-4 w-4" /> Roles &amp; permissions</p>
-              <p className="text-xs text-muted-foreground">Admins, officers, branch reps</p>
-            </Link>
+            <Link to="/admin/members" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">All members</p><p className="text-xs text-muted-foreground">Search, edit, add new members</p></Link>
+            <Link to="/admin/import" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">Bulk Excel import</p><p className="text-xs text-muted-foreground">Upload .xlsx to update everyone at once</p></Link>
+            <Link to="/admin/events" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">Mass arrears event</p><p className="text-xs text-muted-foreground">Add a yearly subscription or funeral charge to many members</p></Link>
+            <Link to="/admin/families" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">Merge into a family</p><p className="text-xs text-muted-foreground">Link members together into one family</p></Link>
+            <Link to="/admin/all-families" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">All families</p><p className="text-xs text-muted-foreground">View, rename, remove members, or delete families</p></Link>
+            <Link to="/admin/branches" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">Branches</p><p className="text-xs text-muted-foreground">Create, rename or delete branches</p></Link>
+            {isAdmin && <Link to="/admin/audit" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary">Audit log</p><p className="text-xs text-muted-foreground">Who changed what, when</p></Link>}
+            <Link to="/admin/roles" className="px-4 py-3 rounded-lg border border-border hover:bg-muted transition-colors"><p className="font-medium text-primary flex items-center gap-2"><Shield className="h-4 w-4" /> Roles &amp; permissions</p><p className="text-xs text-muted-foreground">Admins, officers, branch reps</p></Link>
           </CardContent>
         </Card>
       </div>
 
-      {/* Secure Password Reveal Modal */}
+      {/* Temp Password Generator Alerts */}
       <AlertDialog open={!!tempPassword} onOpenChange={() => setTempPassword(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Temporary Password Generated</AlertDialogTitle>
             <AlertDialogDescription>
-              Copy this password and share it with the member. It will not be shown again.
-              <div className="mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border">
-                {tempPassword}
+              Copy this password and share it safely with the member. It will not be shown again.
+              <div className="relative mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border flex items-center justify-center gap-3">
+                <span>{tempPassword}</span>
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={copyToClipboard}>
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setTempPassword(null)}>I have copied it</AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogAction onClick={() => setTempPassword(null)}>I have copied it</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancel Request Confirmation Modal */}
+      {/* Cancellation Warnings Modals */}
       <AlertDialog open={!!cancelTarget} onOpenChange={() => setCancelTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Cancellation</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel the password reset request from {cancelTarget?.name}?
-            </AlertDialogDescription>
+            <AlertDialogDescription>Are you sure you want to cancel the password reset request from {cancelTarget?.name}?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>No, keep it</AlertDialogCancel>
