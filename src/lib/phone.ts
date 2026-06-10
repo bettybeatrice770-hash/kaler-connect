@@ -1,6 +1,19 @@
 /**
+ * Configuration Constants
+ * Moved outside functions to avoid re-allocation on every invocation.
+ */
+const VALID_PREFIXES = new Set([
+  // Legacy 07xx prefixes
+  "70", "71", "72", "73", "74", "75", "76", "77", "78", "79",
+  // Newer 01xx prefixes (Safaricom, Airtel, Telkom, Equitel)
+  "10", "11", "12", "13", "14", "15", "16"
+]);
+
+const SYNTHETIC_EMAIL_DOMAIN = "members.kalernairobi.local";
+
+/**
  * Normalize a Kenyan phone number to E.164 format (+254XXXXXXXXX).
- * Accepts inputs like "0712345678", "712345678", "+254712345678", "254712345678", "0112345678".
+ * Accepts inputs like "0712345678", "712345678", "+254712345678", "0112345678".
  * * @param input The raw phone number string from user input.
  * @returns The E.164 formatted string, or null if the number is invalid.
  */
@@ -10,12 +23,12 @@ export function normalizeKenyanPhone(input: string | null | undefined): string |
   // Strip all non-numeric characters
   let digits = input.replace(/\D/g, "");
 
-  // Strip country code variants to get the core 9-digit local number
-  if (digits.startsWith("254")) {
+  // Strip country code variants or leading zeros to isolate the 9-digit local number
+  if (digits.startsWith("254") && digits.length === 12) {
     digits = digits.slice(3);
-  } else if (digits.startsWith("0254")) {
+  } else if (digits.startsWith("0254") && digits.length === 13) {
     digits = digits.slice(4);
-  } else if (digits.startsWith("0")) {
+  } else if (digits.startsWith("0") && digits.length === 10) {
     digits = digits.slice(1);
   }
 
@@ -24,16 +37,9 @@ export function normalizeKenyanPhone(input: string | null | undefined): string |
     return null;
   }
 
-  // Validate prefixes based on Communications Authority of Kenya allocations:
-  // - Legacy numbers: 7XX (700-799)
-  // - Newer numbers: 1XX (100-115, and future-proofing up to 15X)
-  const prefix7 = digits.substring(0, 1); // For '7'
-  const prefix1 = digits.substring(0, 2); // For '10', '11', '12', '13', '14', '15'
-
-  const isValid7Series = prefix7 === "7";
-  const isValid1Series = ["10", "11", "12", "13", "14", "15"].includes(prefix1);
-
-  if (!isValid7Series && !isValid1Series) {
+  // Validate against recognized Kenyan telco prefixes
+  const prefix2 = digits.substring(0, 2);
+  if (!VALID_PREFIXES.has(prefix2)) {
     return null;
   }
 
@@ -45,18 +51,40 @@ export function normalizeKenyanPhone(input: string | null | undefined): string |
  * used as the Supabase auth identifier.
  * e.g. "+254712345678" → "254712345678@members.kalernairobi.local"
  * * @param e164 A strictly validated E.164 phone number (e.g., "+254712345678")
- * @returns A synthetic email string (e.g., "254712345678@members.kalernairobi.local")
+ * @returns A synthetic email string.
  * @throws Error if the input is not a valid E.164 formatted Kenyan number.
  */
 export function phoneToAuthEmail(e164: string): string {
-  const trimmed = (e164 || "").trim();
-
-  // Enforce rigid E.164 format check before processing
-  if (!/^\+254\d{9}$/.test(trimmed)) {
+  if (!e164 || !/^\+254\d{9}$/.test(e164)) {
     throw new Error(`Invalid E.164 phone number format provided: ${e164}`);
   }
+  
+  const cleanNumber = e164.replace(/^\+/, "");
+  return `${cleanNumber}@${SYNTHETIC_EMAIL_DOMAIN}`;
+}
 
-  // Strip the leading '+' and append the internal domain
-  const cleanNumber = trimmed.slice(1); 
-  return `${cleanNumber}@members.kalernairobi.local`;
+/**
+ * Format a phone number (E.164 or raw) for human-readable display.
+ * e.g. "+254712345678" → "0712 345 678"
+ * e.g. "0112345678" → "0112 345 678"
+ * Returns the original string unchanged if it cannot be parsed.
+ * * @param phone Any phone string stored in the database or provided by user.
+ * @returns A formatted display string.
+ */
+export function formatPhoneDisplay(phone: string | null | undefined): string {
+  if (!phone) return "—";
+
+  // Normalize first to ensure we have a standard E.164 base to parse from
+  const e164 = normalizeKenyanPhone(phone);
+  if (!e164) return phone.trim(); // Fallback to original input if normalization fails
+
+  // Extract the 9-digit local number (removes "+254")
+  const local = e164.slice(4); // e.g., "712345678" or "112345678"
+
+  // Properly split into traditional local format: 07XX XXX XXX
+  const group1 = local.substring(0, 3); // "712"
+  const group2 = local.substring(3, 6); // "345"
+  const group3 = local.substring(6);    // "678"
+
+  return `0${group1} ${group2} ${group3}`;
 }
