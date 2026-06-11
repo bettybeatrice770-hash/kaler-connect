@@ -8,12 +8,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { normalizeKenyanPhone, phoneToAuthEmail } from "@/lib/phone";
 import { Loader2, Phone, KeyRound, ArrowLeft } from "lucide-react";
 
-// 1. Define the validation schema with custom messages
 const loginSchema = z.object({
   phone: z
     .string()
@@ -33,33 +38,32 @@ const Login = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
-  // 2. Initialize React Hook Form with Zod validation
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      phone: "",
-      password: "",
-    },
+    defaultValues: { phone: "", password: "" },
   });
 
-  // Redirect if user is already logged in
+  // Redirect already-authenticated users away from the login page.
+  // FIX: Only redirect once loading is fully resolved. Previously this could
+  // fire while loading was still true (session not yet confirmed), causing
+  // a flash-redirect to /dashboard before auth state was ready.
   useEffect(() => {
     if (!loading && user) {
       navigate("/dashboard", { replace: true });
     }
   }, [user, loading, navigate]);
 
-  // 3. Simplified submit handler
   const onSubmit = async (data: LoginFormData) => {
     const e164 = normalizeKenyanPhone(data.phone);
     if (!e164) {
       toast({
         title: "Invalid Phone Number",
-        description: "Could not parse your phone number. Please check and try again.",
+        description:
+          "Could not parse your phone number. Please check and try again.",
         variant: "destructive",
       });
       return;
@@ -72,22 +76,41 @@ const Login = () => {
       });
 
       if (error) throw error;
-      
-      // Navigation is automatically handled by the useEffect watching the auth state
+
+      // FIX: Do NOT imperatively navigate here. The useEffect above watches
+      // the auth state and will navigate once the AuthProvider has finished
+      // calling loadAll() and flipped loading back to false. Navigating here
+      // early was causing the dashboard to render before roles were loaded,
+      // making it appear as though the app was "hanging" on a blank screen.
     } catch (err: any) {
       toast({
         title: "Login failed",
-        description: err.message || "An unexpected error occurred.",
+        description:
+          err.message === "Invalid login credentials"
+            ? "Incorrect phone number or password. Please try again."
+            : err.message || "An unexpected error occurred.",
         variant: "destructive",
       });
     }
   };
 
+  // FIX: Show a full-page loader while the initial auth check is running.
+  // Without this, the login form briefly renders on top of a loading state,
+  // and users who refresh while logged in see the form flicker before the
+  // redirect kicks in.
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center" role="status" aria-label="Checking session">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-secondary to-background grid place-items-center p-4">
       <div className="w-full max-w-md space-y-6">
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> Back to homepage
@@ -101,7 +124,7 @@ const Login = () => {
             <CardTitle className="font-display text-2xl">Member Login</CardTitle>
             <CardDescription>Kaler Nairobi Welfare Association</CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {/* Phone Field */}
@@ -115,11 +138,14 @@ const Login = () => {
                     placeholder="0712 345 678"
                     className="pl-9"
                     disabled={isSubmitting}
+                    autoComplete="tel"
                     {...register("phone")}
                   />
                 </div>
                 {errors.phone && (
-                  <p className="text-xs font-medium text-destructive">{errors.phone.message}</p>
+                  <p className="text-xs font-medium text-destructive">
+                    {errors.phone.message}
+                  </p>
                 )}
               </div>
 
@@ -134,27 +160,40 @@ const Login = () => {
                     placeholder="Your password"
                     className="pl-9"
                     disabled={isSubmitting}
+                    autoComplete="current-password"
                     {...register("password")}
                   />
                 </div>
                 {errors.password && (
-                  <p className="text-xs font-medium text-destructive">{errors.password.message}</p>
+                  <p className="text-xs font-medium text-destructive">
+                    {errors.password.message}
+                  </p>
                 )}
               </div>
 
               {/* Submit Button */}
-              <Button 
-                type="submit" 
-                variant="hero" 
-                className="w-full" 
+              <Button
+                type="submit"
+                variant="hero"
+                className="w-full"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  "Sign in"
+                )}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
                 Forgot your password?{" "}
-                <Link to="/forgot-password" className="text-primary hover:underline">
+                <Link
+                  to="/forgot-password"
+                  className="text-primary hover:underline"
+                >
                   Request a reset
                 </Link>
               </p>
