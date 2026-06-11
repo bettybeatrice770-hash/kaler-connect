@@ -77,7 +77,7 @@ const STATUS_LABELS: Record<MemberRecord["status"], string> = {
 const STATUS_KEYS: MemberRecord["status"][] = ["active", "dormant", "suspended", "left_welfare"];
 
 const AdminOverview = () => {
-  const { isAdmin, isOfficer, isBranchRep, branchAdminIds, refreshAuth } = useAuth();
+  const { isAdmin, isOfficer, isBranchRep, branchAdminIds = [], refreshAuth, user } = useAuth();
   const branchScoped = isBranchRep && !isAdmin && !isOfficer;
 
   // --- States ---
@@ -97,12 +97,13 @@ const AdminOverview = () => {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
+  // Stable string primitive wrapper to prevent unnecessary hook recalculations
   const branchAdminIdsString = useMemo(() => branchAdminIds.join(","), [branchAdminIds]);
 
   // --- Data Loading ---
   const loadDashboardData = useCallback(async () => {
     try {
-      const queries: any[] = [
+      const queries = [
         supabase.from("branches").select("id, name").order("name"),
         supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
         supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
@@ -141,11 +142,11 @@ const AdminOverview = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchScoped, branchAdminIds, isAdmin]);
+  }, [branchScoped, branchAdminIdsString, isAdmin, branchAdminIds]);
 
   useEffect(() => { 
     loadDashboardData(); 
-  }, [loadDashboardData, branchAdminIdsString]);
+  }, [loadDashboardData]);
 
   // --- Memoized Aggregations ---
   const totalArrears = useMemo(() => arrears.reduce((s, a) => s + Number(a.amount), 0), [arrears]);
@@ -261,13 +262,13 @@ const AdminOverview = () => {
   const admitFamilyRequest = async (req: FamilyRequest) => {
     setProcessingRequest(req.id);
     try {
-      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      const adminUserId = user?.id;
 
       if (req.category === "child") {
         await supabase.from("family_requests").update({ 
           status: "approved", 
           reviewed_at: new Date().toISOString(), 
-          reviewed_by: adminUser?.id 
+          reviewed_by: adminUserId,
         }).eq("id", req.id);
       } else {
         const branchRes = await supabase.from("member_records").select("branch_id").eq("profile_id", req.submitted_by_profile_id).maybeSingle();
@@ -294,8 +295,8 @@ const AdminOverview = () => {
         await supabase.from("family_requests").update({ 
           status: "approved", 
           reviewed_at: new Date().toISOString(), 
-          reviewed_by: adminUser?.id, 
-          member_record_id: newRec.id 
+          reviewed_by: adminUserId,
+          member_record_id: newRec.id,
         }).eq("id", req.id);
       }
       toast({ 
@@ -313,11 +314,11 @@ const AdminOverview = () => {
   const rejectFamilyRequest = async (req: FamilyRequest) => {
     setProcessingRequest(req.id);
     try {
-      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      const adminUserId = user?.id;
       const { error } = await supabase.from("family_requests").update({ 
         status: "rejected", 
         reviewed_at: new Date().toISOString(), 
-        reviewed_by: adminUser?.id 
+        reviewed_by: adminUserId,
       }).eq("id", req.id);
       
       if (error) throw error;
@@ -351,7 +352,7 @@ const AdminOverview = () => {
   return (
     <PortalLayout>
       <div className="space-y-8">
-        {/* Header Dashboard section */}
+        {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <p className="text-sm font-semibold tracking-widest uppercase text-accent">Admin</p>
@@ -362,11 +363,11 @@ const AdminOverview = () => {
           </Button>
         </div>
 
-        {/* Aggregate Cards Summary */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2"><Users className="h-4 w-4" />Total members</CardDescription>
+              <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4 text-muted-foreground" />Total members</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-display text-primary">{records.length}</p>
@@ -374,7 +375,7 @@ const AdminOverview = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2"><MapPin className="h-4 w-4" />Branches</CardDescription>
+              <CardTitle className="text-sm font-medium flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />Branches</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-display text-primary">{branches.length}</p>
@@ -382,7 +383,7 @@ const AdminOverview = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-green-700"><Wallet className="h-4 w-4" />Development Fund</CardDescription>
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700"><Wallet className="h-4 w-4" />Development Fund</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-display text-green-700">Ksh {devTotal.toLocaleString()}</p>
@@ -391,7 +392,7 @@ const AdminOverview = () => {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-green-700"><Coins className="h-4 w-4" />FEF</CardDescription>
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700"><Coins className="h-4 w-4" />FEF</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-display text-green-700">Ksh {fefTotal.toLocaleString()}</p>
@@ -402,7 +403,7 @@ const AdminOverview = () => {
           </Card>
         </div>
 
-        {/* Arrears Summary Section */}
+        {/* Arrears Summary */}
         <Card className="border-destructive/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -428,7 +429,7 @@ const AdminOverview = () => {
           </CardContent>
         </Card>
 
-        {/* Password Resets Section */}
+        {/* Password Resets */}
         {isAdmin && (
           <Card className="border-accent/40">
             <CardHeader>
@@ -436,7 +437,7 @@ const AdminOverview = () => {
               <CardDescription>Verify each member offline (e.g. by phone) before approving.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 text-sm mb-2">
+              <div className="flex items-center gap-3 text-sm mb-4">
                 <span className="text-muted-foreground">Temp password format:</span>
                 <label className="flex items-center gap-1 cursor-pointer">
                   <input type="radio" checked={pwFormat === "year"} onChange={() => setPwFormat("year")} />
@@ -473,7 +474,7 @@ const AdminOverview = () => {
           </Card>
         )}
 
-        {/* Family Admission Handling */}
+        {/* Family Admission Requests */}
         {isAdmin && familyRequests.length > 0 && (
           <Card className="border-orange-400/40">
             <CardHeader>
@@ -485,14 +486,14 @@ const AdminOverview = () => {
                 {familyRequests.map((req) => {
                   const submittedBy = req.profiles?.full_name || "Unknown member";
                   const familyName = req.families?.family_name || "Unknown family";
-                  const age = req.birth_month && req.birth_year
-                    ? (() => { 
-                        const today = new Date(); 
-                        let a = today.getFullYear() - req.birth_year!; 
-                        if (today.getMonth() + 1 - req.birth_month! < 0) a--; 
-                        return a; 
-                      })()
-                    : null;
+                  
+                  let age: number | null = null;
+                  if (req.birth_month && req.birth_year) {
+                    const today = new Date();
+                    age = today.getFullYear() - req.birth_year;
+                    if (today.getMonth() + 1 < req.birth_month) age--;
+                  }
+
                   return (
                     <li key={req.id} className="py-4 flex items-start justify-between gap-3 flex-wrap">
                       <div className="space-y-1">
@@ -517,7 +518,7 @@ const AdminOverview = () => {
           </Card>
         )}
 
-        {/* Branches Grid Navigation */}
+        {/* Branches Grid */}
         <Card>
           <CardHeader>
             <CardTitle>Branches</CardTitle>
@@ -552,7 +553,7 @@ const AdminOverview = () => {
           </CardContent>
         </Card>
 
-        {/* Management Quick Link Actions */}
+        {/* Quick Actions */}
         <Card>
           <CardHeader><CardTitle>Quick actions</CardTitle></CardHeader>
           <CardContent className="grid sm:grid-cols-2 gap-3">
@@ -568,26 +569,28 @@ const AdminOverview = () => {
         </Card>
       </div>
 
-      {/* Temp Password Generator Alerts */}
+      {/* Temp Password Modal */}
       <AlertDialog open={!!tempPassword} onOpenChange={() => setTempPassword(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Temporary Password Generated</AlertDialogTitle>
-            <AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogDescription asChild>
+            <div className="text-sm text-muted-foreground">
               Copy this password and share it safely with the member. It will not be shown again.
               <div className="relative mt-4 p-4 bg-muted rounded font-mono text-xl text-center select-all border flex items-center justify-center gap-3">
-                <span>{tempPassword}</span>
+                <span className="text-foreground">{tempPassword}</span>
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={copyToClipboard}>
                   {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </div>
+          </AlertDialogDescription>
           <AlertDialogFooter><AlertDialogAction onClick={() => setTempPassword(null)}>I have copied it</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancellation Warnings Modals */}
+      {/* Cancel Reset Modal */}
       <AlertDialog open={!!cancelTarget} onOpenChange={() => setCancelTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
