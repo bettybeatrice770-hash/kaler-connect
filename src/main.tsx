@@ -49,7 +49,7 @@ class ConfigurationErrorBoundary extends React.Component<
   }
 }
 
-// 2. Pure static fallback UI for early module crashes (e.g. missing Supabase variables)
+// 2. Pure static fallback UI for early module crashes - sanitized against XSS
 function renderStaticFailureScreen(message: string) {
   document.body.innerHTML = `
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #f9fafb; padding: 1rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
@@ -64,17 +64,22 @@ function renderStaticFailureScreen(message: string) {
           Kaler Connect was blocked during initialization. This error occurs outside of React's lifecycle, typically due to empty environment configurations.
         </p>
         <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 0.5rem; padding: 1rem; text-align: left; margin-bottom: 1rem;">
-          <p style="font-size: 0.75rem; font-family: monospace; color: #b91c1c; margin: 0; word-break: break-all; font-weight: 600;">
-            ${message}
-          </p>
+          <p id="error-message-text" style="font-size: 0.75rem; font-family: monospace; color: #b91c1c; margin: 0; word-break: break-all; font-weight: 600;"></p>
         </div>
         <p style="font-size: 0.75rem; color: #9ca3af; margin: 0;">Please check your Netlify environment settings or Lovable secret panel variables.</p>
       </div>
     </div>
   `;
+
+  const errorTextContainer = document.getElementById('error-message-text');
+  // CRITICAL SECURITY GUARD: Do NOT move message into the innerHTML template above. 
+  // Using textContent explicitly sanitizes variable input and prevents potential XSS script execution.
+  if (errorTextContainer) {
+    errorTextContainer.textContent = message;
+  }
 }
 
-// 3. Robust mount execution with a global lifecycle try/catch backstop
+// 3. Robust synchronous mount execution with a global lifecycle try/catch backstop
 try {
   const rootElement = document.getElementById('root');
   
@@ -90,7 +95,7 @@ try {
     </React.StrictMode>
   );
 } catch (err: any) {
-  // Capture global module-level bootstrap crashes cleanly
+  // Capture global module-level bootstrap crashes cleanly (e.g. missing Supabase keys in client.ts)
   console.error("Fatal System Bootstrap Halting:", err);
   renderStaticFailureScreen(err?.message || String(err));
 }
