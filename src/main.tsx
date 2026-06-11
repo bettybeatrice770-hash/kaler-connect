@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
 import './index.css';
 
 // 1. Error Boundary to catch UI rendering crashes gracefully during runtime
@@ -61,7 +60,7 @@ function renderStaticFailureScreen(message: string) {
         </div>
         <h1 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin: 0 0 0.5rem 0;">System Connection Offline</h1>
         <p style="font-size: 0.875rem; color: #4b5563; line-height: 1.5; margin-bottom: 1.5rem;">
-          Kaler Connect was blocked during initialization. This error occurs outside of React's lifecycle, typically due to empty environment configurations.
+          Kaler Connect initialization failed. This error typically occurs outside of React's lifecycle due to unpopulated configuration parameters.
         </p>
         <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 0.5rem; padding: 1rem; text-align: left; margin-bottom: 1rem;">
           <p id="error-message-text" style="font-size: 0.75rem; font-family: monospace; color: #b91c1c; margin: 0; word-break: break-all; font-weight: 600;"></p>
@@ -79,23 +78,34 @@ function renderStaticFailureScreen(message: string) {
   }
 }
 
-// 3. Robust synchronous mount execution with a global lifecycle try/catch backstop
-try {
-  const rootElement = document.getElementById('root');
-  
-  if (!rootElement) {
-    throw new Error("Missing Root Mount Point: The HTML document container element '#root' was not found in index.html.");
-  }
+// 3. Deferred execution to capture module load evaluation failures cleanly
+async function bootstrapApplication() {
+  try {
+    // Dynamically loading App and safeClient inside the execution block ensures that any
+    // module-level load exceptions are caught by the local try/catch shell.
+    const [{ default: App }] = await Promise.all([
+      import('./App'),
+      // safeClient import is intentional: triggers module-level env var validation
+      // before App mounts. The exported client is used downstream via @/integrations/supabase/safeClient.
+      import('./integrations/supabase/safeClient')
+    ]);
 
-  ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-      <ConfigurationErrorBoundary>
-        <App />
-      </ConfigurationErrorBoundary>
-    </React.StrictMode>
-  );
-} catch (err: any) {
-  // Capture global module-level bootstrap crashes cleanly (e.g. missing Supabase keys in client.ts)
-  console.error("Fatal System Bootstrap Halting:", err);
-  renderStaticFailureScreen(err?.message || String(err));
+    const rootElement = document.getElementById('root');
+    if (!rootElement) {
+      throw new Error("Missing Root Mount Point: The HTML document container element '#root' was not found in index.html.");
+    }
+
+    ReactDOM.createRoot(rootElement).render(
+      <React.StrictMode>
+        <ConfigurationErrorBoundary>
+          <App />
+        </ConfigurationErrorBoundary>
+      </React.StrictMode>
+    );
+  } catch (err: any) {
+    console.error("Fatal System Bootstrap Halting:", err);
+    renderStaticFailureScreen(err?.message || String(err));
+  }
 }
+
+bootstrapApplication();
