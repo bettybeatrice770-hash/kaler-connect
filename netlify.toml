@@ -8,7 +8,7 @@
   to = "/index.html"
   status = 200
 
-# Security Headers
+# Hardened Production Security Headers
 [[headers]]
   for = "/*"
   [headers.values]
@@ -16,5 +16,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; frame-ancestors 'none';"
+    # Dropped 'preload' to mitigate permanent subdomain lockout risks
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains"
+    # Added frame-src 'none' to block unexpected external iframe embedding
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co https://*.lovable.app https://*.lovable.dev wss://*.lovable.dev; img-src 'self' data: blob: https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; frame-src 'none'; frame-ancestors 'none';"
