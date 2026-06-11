@@ -39,7 +39,7 @@ function ErrorScreen({ message }: { message: string }) {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Something went wrong</h1>
-        <p className="text-sm text-gray-500">The app crashed unexpectedly. Try refreshing.</p>
+        <p className="text-sm text-gray-500">The app encountered an unexpected error. Try refreshing.</p>
         <pre className="text-left text-xs font-mono text-red-700 bg-red-50 p-3 rounded-lg border border-red-100 break-words whitespace-pre-wrap">
           {message}
         </pre>
