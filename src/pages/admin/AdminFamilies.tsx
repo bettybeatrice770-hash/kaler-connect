@@ -16,6 +16,10 @@ type Branch = { id: string; name: string };
 type MRec = { id: string; full_name: string; branch_id: string | null; family_id: string | null; phone: string | null };
 type Family = { id: string; family_name: string };
 
+interface MergeFunctionResponse {
+  error?: string;
+}
+
 const AdminFamilies = () => {
   const { isAdmin, isBranchRep, isOfficer, branchAdminIds } = useAuth();
   const branchScoped = isBranchRep && !isAdmin && !isOfficer;
@@ -41,7 +45,7 @@ const AdminFamilies = () => {
       let allBranches = (brs as Branch[]) || [];
       let allRecs = (recs as MRec[]) || [];
 
-      if (branchScoped) {
+      if (branchScoped && branchAdminIds) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
         allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
       }
@@ -56,19 +60,21 @@ const AdminFamilies = () => {
     }
   };
 
+  // Convert array to a stable string primitive to prevent infinite re-render cycles
+  const serializedBranchAdminIds = useMemo(() => branchAdminIds?.join(",") ?? "", [branchAdminIds]);
+
   useEffect(() => {
     load();
-  }, [branchScoped, branchAdminIds]);
+  }, [branchScoped, serializedBranchAdminIds]);
 
-  // Create highly efficient $O(1)$ lookups for the map render
   const branchMap = useMemo(() => new Map(branches.map(b => [b.id, b.name])), [branches]);
   const familyMap = useMemo(() => new Map(families.map(f => [f.id, f.family_name])), [families]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return records;
-    return records.filter(r => 
-      r.full_name.toLowerCase().includes(q) || 
+    return records.filter(r =>
+      r.full_name.toLowerCase().includes(q) ||
       (r.phone || "").includes(q)
     );
   }, [records, search]);
@@ -90,30 +96,37 @@ const AdminFamilies = () => {
   const existingFamilyId = useMemo(() => selectedRecords.find(r => r.family_id)?.family_id ?? null, [selectedRecords]);
   const existingFamilyName = useMemo(() => existingFamilyId ? familyMap.get(existingFamilyId) : null, [existingFamilyId, familyMap]);
 
+  const isMergeDisabled = useMemo(() => {
+    return busy || selected.size < 2 || (!existingFamilyId && !familyName.trim());
+  }, [busy, selected.size, existingFamilyId, familyName]);
+
   const merge = async () => {
     if (selected.size < 2) {
       return toast({ title: "Select at least 2 members", variant: "destructive" });
     }
-
     if (!existingFamilyId && !familyName.trim()) {
       return toast({ title: "Enter a family name", variant: "destructive" });
     }
 
     setBusy(true);
     try {
-      const body: any = { member_record_ids: Array.from(selected) };
+      const body: { member_record_ids: string[]; existing_family_id?: string; family_name?: string } = {
+        member_record_ids: Array.from(selected)
+      };
+      
       if (existingFamilyId) {
         body.existing_family_id = existingFamilyId;
       } else {
         body.family_name = familyName.trim();
       }
 
-      const { data, error } = await supabase.functions.invoke("merge-family", { body });
-      if (error || (data as any)?.error) {
-        toast({ 
-          title: "Merge failed", 
-          description: (data as any)?.error || error?.message, 
-          variant: "destructive" 
+      const { data, error } = await supabase.functions.invoke<MergeFunctionResponse>("merge-family", { body });
+      
+      if (error || data?.error) {
+        toast({
+          title: "Merge failed",
+          description: data?.error || error?.message || "An unknown error occurred",
+          variant: "destructive",
         });
         return;
       }
@@ -121,13 +134,14 @@ const AdminFamilies = () => {
       const msg = existingFamilyId
         ? `Members added to "${existingFamilyName}" family.`
         : `${selected.size} members linked into "${familyName.trim()}".`;
-        
+
       toast({ title: "Done", description: msg });
       setSelected(new Set());
       setFamilyName("");
       load();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -161,7 +175,6 @@ const AdminFamilies = () => {
           </div>
         </div>
 
-        {/* Action card accessible to authorized users */}
         {(isAdmin || isBranchRep || isOfficer) && (
           <Card>
             <CardHeader>
@@ -195,7 +208,7 @@ const AdminFamilies = () => {
                 <Badge variant="secondary">{selected.size} selected</Badge>
                 <Button
                   onClick={merge}
-                  disabled={busy || selected.size < 2 || (!existingFamilyId && !familyName.trim())}
+                  disabled={isMergeDisabled}
                   variant="hero"
                 >
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : existingFamilyId ? "Add to family" : "Create & merge"}
@@ -219,13 +232,13 @@ const AdminFamilies = () => {
             {filtered.map(r => {
               const fam = r.family_id ? familyMap.get(r.family_id) : null;
               return (
-                <label 
-                  key={r.id} 
+                <label
+                  key={r.id}
                   className="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-muted/40 px-2 rounded transition-colors"
                 >
-                  <Checkbox 
-                    checked={selected.has(r.id)} 
-                    onCheckedChange={() => toggle(r.id)} 
+                  <Checkbox
+                    checked={selected.has(r.id)}
+                    onCheckedChange={() => toggle(r.id)}
                   />
                   <div className="flex-1">
                     <p className="font-medium text-sm">{r.full_name}</p>
