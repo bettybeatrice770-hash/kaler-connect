@@ -40,15 +40,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [branchAdminIds, setBranchAdminIds] = useState<string[]>([]);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  // FIX: Track in-flight loadAll calls with a ref so we never run two
-  // concurrent RPC calls (one from initializeAuth + one from onAuthStateChange).
-  // The second call simply waits for the first to finish rather than starting
-  // a duplicate network request.
+  // Track in-flight loadAll calls with a ref so concurrent calls reuse the same promise
   const loadingRef = useRef(false);
   const loadPromiseRef = useRef<Promise<void> | null>(null);
 
   const loadAll = async (userId: string): Promise<void> => {
-    // If a load is already in flight, reuse that promise instead of launching another.
     if (loadingRef.current && loadPromiseRef.current) {
       return loadPromiseRef.current;
     }
@@ -58,7 +54,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const { data, error } = await supabase.rpc('get_user_auth_data');
         if (error) {
-          // Log but don't crash — a slow RPC shouldn't block the auth flow.
           console.error("Error loading user auth data:", error);
           return;
         }
@@ -105,25 +100,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // FIX: Use a mounted flag to guard all setState calls. If this component
-    // unmounts while an async operation is in-flight, stale setState calls
-    // won't fire and trigger React's "update on unmounted component" warnings.
     let mounted = true;
+    let initialized = false;
 
-    // FIX: Bootstrap the auth state ONCE by subscribing to onAuthStateChange
-    // before calling getSession. This is the pattern recommended by Supabase.
-    // It ensures we never miss an event that fires between getSession() returning
-    // and the subscription being set up — which was the original source of hangs.
+    // 1. Subscribe to Auth State Changes immediately
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
 
-        // PASSWORD_RECOVERY is emitted when a user follows a reset link.
-        // We simply set the session so ResetPassword.tsx can detect it —
-        // we do NOT call loadAll() here since there are no roles to load yet.
         if (event === "PASSWORD_RECOVERY") {
           setSession(newSession);
           setUser(newSession?.user ?? null);
+          setLoading(false);
+          initialized = true;
           return;
         }
 
@@ -132,37 +121,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
           clearRoleState();
           setLoading(false);
+          initialized = true;
           return;
         }
 
-        // For SIGNED_IN and TOKEN_REFRESHED, update session state then load roles.
-        // FIX: We only call setLoading(true) if we're not already in a loading
-        // state to avoid unnecessary re-renders.
         setSession(newSession);
         setUser(newSession.user);
 
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-          if (mounted) setLoading(true);
+          if (mounted) setLoading(true); // Guarantees clean loader states on subsequent logins
           try {
             await loadAll(newSession.user.id);
           } finally {
-            if (mounted) setLoading(false);
+            if (mounted) {
+              setLoading(false);
+              initialized = true;
+            }
           }
         }
       }
     );
 
-    // FIX: Call getSession() AFTER subscribing so the INITIAL_SESSION event
-    // from onAuthStateChange does the heavy lifting. We only need getSession()
-    // to handle the edge case where there is no active session (logged-out state).
+    // 2. Fallback check: Read initial session directly to prevent eternal loading if events don't fire
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      // If there's no session and onAuthStateChange hasn't fired INITIAL_SESSION
-      // yet, we can safely set loading to false here.
-      if (!existingSession && mounted) {
+      if (!mounted || initialized) return;
+
+      if (!existingSession) {
         setLoading(false);
+      } else {
+        setSession(existingSession);
+        setUser(existingSession.user);
+        if (mounted) setLoading(true); // Ensures loading spinner remains up during fallback metadata query
+        loadAll(existingSession.user.id).finally(() => {
+          if (mounted) setLoading(false);
+        });
       }
-      // If there IS a session, onAuthStateChange will fire INITIAL_SESSION
-      // and handle everything — we don't duplicate the work.
     });
 
     return () => {
