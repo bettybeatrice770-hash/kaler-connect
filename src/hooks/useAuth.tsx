@@ -47,9 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.rpc('get_user_auth_data');
       if (error) {
         console.error("Error loading user auth data:", error);
-        setRoles([]);
-        setBranchAdminIds([]);
-        setMustChangePassword(false);
+        clearRoleState();
         return;
       }
       if (data) {
@@ -103,7 +101,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === "PASSWORD_RECOVERY") {
           setSession(newSession);
           setUser(newSession?.user ?? null);
-          if (mounted) setLoading(false);
           return;
         }
 
@@ -111,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(null);
           setUser(null);
           clearRoleState();
-          if (mounted) setLoading(false);
+          setLoading(false);
           return;
         }
 
@@ -119,25 +116,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(newSession.user);
 
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
-          if (!isAuthEventProcessing.current) {
-            isAuthEventProcessing.current = true;
-            if (mounted) setLoading(true);
-            
-            try {
-              await loadAll(newSession.user.id);
-            } catch (e) {
-              console.error("Auth load error, forcing stop:", e);
-            } finally {
-              isAuthEventProcessing.current = false;
-              if (mounted) setLoading(false);
-            }
+          if (isAuthEventProcessing.current) return;
+          isAuthEventProcessing.current = true;
+          if (mounted) setLoading(true);
+
+          try {
+            await loadAll(newSession.user.id);
+          } finally {
+            isAuthEventProcessing.current = false;
+            if (mounted) setLoading(false);
           }
         }
       }
     );
 
+    // Immediate hydration after refresh
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      if (mounted && !existingSession) {
+      if (mounted) {
+        if (existingSession) {
+          setSession(existingSession);
+          setUser(existingSession.user);
+          loadAll(existingSession.user.id);
+        }
         setLoading(false);
       }
     });
