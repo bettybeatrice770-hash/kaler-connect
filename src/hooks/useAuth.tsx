@@ -40,35 +40,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [branchAdminIds, setBranchAdminIds] = useState<string[]>([]);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  // Track in-flight loadAll calls with a ref so concurrent calls reuse the same promise
-  const loadingRef = useRef(false);
-  const loadPromiseRef = useRef<Promise<void> | null>(null);
+  // Guard flag to prevent parallel database calls during login events
+  const isAuthEventProcessing = useRef(false);
 
   const loadAll = async (userId: string): Promise<void> => {
-    if (loadingRef.current && loadPromiseRef.current) {
-      return loadPromiseRef.current;
-    }
-
-    loadingRef.current = true;
-    loadPromiseRef.current = (async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_user_auth_data');
-        if (error) {
-          console.error("Error loading user auth data:", error);
-          return;
-        }
-        if (data) {
-          setRoles(data.roles ?? []);
-          setBranchAdminIds(data.branch_admin_ids ?? []);
-          setMustChangePassword(!!data.must_change_password);
-        }
-      } finally {
-        loadingRef.current = false;
-        loadPromiseRef.current = null;
+    try {
+      const { data, error } = await supabase.rpc('get_user_auth_data');
+      if (error) {
+        console.error("Error loading user auth data:", error);
+        return;
       }
-    })();
-
-    return loadPromiseRef.current;
+      if (data) {
+        setRoles(data.roles ?? []);
+        setBranchAdminIds(data.branch_admin_ids ?? []);
+        setMustChangePassword(!!data.must_change_password);
+      }
+    } catch (err) {
+      console.error("Unexpected error loading user data:", err);
+    }
   };
 
   const clearRoleState = () => {
@@ -101,9 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    let initialized = false;
 
-    // 1. Subscribe to Auth State Changes immediately
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
@@ -111,8 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === "PASSWORD_RECOVERY") {
           setSession(newSession);
           setUser(newSession?.user ?? null);
-          setLoading(false);
-          initialized = true;
           return;
         }
 
@@ -121,7 +106,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
           clearRoleState();
           setLoading(false);
-          initialized = true;
           return;
         }
 
@@ -129,32 +113,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(newSession.user);
 
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-          if (mounted) setLoading(true); // Guarantees clean loader states on subsequent logins
+          // If a call is already running for this login cycle, exit immediately to prevent a hang
+          if (isAuthEventProcessing.current) return;
+          
+          isAuthEventProcessing.current = true;
+          if (mounted) setLoading(true);
+          
           try {
             await loadAll(newSession.user.id);
           } finally {
-            if (mounted) {
-              setLoading(false);
-              initialized = true;
-            }
+            isAuthEventProcessing.current = false;
+            if (mounted) setLoading(false);
           }
         }
       }
     );
 
-    // 2. Fallback check: Read initial session directly to prevent eternal loading if events don't fire
+    // This is your original working logic that lets the login form load instantly
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      if (!mounted || initialized) return;
-
-      if (!existingSession) {
+      if (!existingSession && mounted) {
         setLoading(false);
-      } else {
-        setSession(existingSession);
-        setUser(existingSession.user);
-        if (mounted) setLoading(true); // Ensures loading spinner remains up during fallback metadata query
-        loadAll(existingSession.user.id).finally(() => {
-          if (mounted) setLoading(false);
-        });
       }
     });
 
