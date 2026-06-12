@@ -1,15 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// The app will prioritize the real environment variables. 
-// If they are missing (causing the "URL is required" error), it falls back 
-// to a placeholder to prevent the app from crashing entirely.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://your-project-id.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "your-anon-key";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// FIX: In some browsers (notably Chrome when this app is rendered inside a
-// cross-origin iframe, e.g. the Lovable preview pane), accessing
-// window.localStorage throws a SecurityError due to storage partitioning.
+// Safe storage adapter: avoids Chrome iframe partitioning errors in Lovable preview
 const createSafeStorage = (): Storage => {
   try {
     const testKey = '__supabase_storage_test__';
@@ -34,7 +29,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: createSafeStorage(),
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
+    detectSessionInUrl: true,   // required for password reset & magic links
+    flowType: 'pkce',           // secure flow, ensures recovery links work
   },
 });
