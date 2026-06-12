@@ -1,20 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import type { Database } from './types'; // Or your local types path
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// FIX: In some browsers (notably Chrome when this app is rendered inside a
-// cross-origin iframe, e.g. the Lovable preview pane), accessing
-// window.localStorage throws a SecurityError due to storage partitioning.
-// supabase-js calls into storage at createClient() time -- before React even
-// mounts -- so an uncaught throw here kills the entire bundle and produces a
-// blank white page with no error boundary to catch it (Kiwi/other Chromium
-// forks don't enforce this, so the same code "works" there).
-// This adapter probes localStorage once and falls back to an in-memory store
-// if it's inaccessible, so the app always boots. Auth simply won't persist
-// across reloads in environments that block localStorage.
-const createSafeStorage = () => {
+// Safe storage adapter to prevent SecurityError crashes inside the Lovable preview pane iframe
+const createSafeStorage = (): Storage => {
   try {
     const testKey = '__supabase_storage_test__';
     window.localStorage.setItem(testKey, '1');
@@ -26,6 +17,9 @@ const createSafeStorage = () => {
       getItem: (key: string) => memoryStore.get(key) ?? null,
       setItem: (key: string, value: string) => { memoryStore.set(key, value); },
       removeItem: (key: string) => { memoryStore.delete(key); },
+      clear: () => { memoryStore.clear(); },
+      get length() { return memoryStore.size; },
+      key: (index: number) => Array.from(memoryStore.keys())[index] ?? null,
     };
   }
 };
@@ -35,15 +29,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: createSafeStorage(),
     persistSession: true,
     autoRefreshToken: true,
-    // FIX: detectSessionInUrl is required so that password-reset and magic-link
-    // tokens in the URL hash are automatically exchanged for a session.
-    // Without this, ResetPassword.tsx never receives a valid session and
-    // hangs on "Validating link..." forever.
-    detectSessionInUrl: true,
-    // FIX: Use the 'pkce' flow for all auth operations. PKCE is more secure and,
-    // critically, it ensures that the session established by a recovery link is
-    // correctly picked up by onAuthStateChange as a PASSWORD_RECOVERY event
-    // rather than being silently dropped.
-    flowType: 'pkce',
+    detectSessionInUrl: true, // Fixes Magic Links & Password Reset hangs
+    flowType: 'pkce', // Ensures password recovery events fire correctly
   },
 });
