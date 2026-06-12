@@ -135,16 +135,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Immediate hydration after refresh
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      if (mounted) {
-        if (existingSession) {
-          setSession(existingSession);
-          setUser(existingSession.user);
-          loadAll(existingSession.user.id);
+    // Immediate hydration after refresh — only runs if onAuthStateChange hasn't
+    // already picked up the session (guarded by isAuthEventProcessing ref).
+    supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
+      if (!mounted) return;
+      if (existingSession) {
+        setSession(existingSession);
+        setUser(existingSession.user);
+        // Only call loadAll if the auth state change listener hasn't already
+        // started processing (i.e. INITIAL_SESSION fired first and grabbed the lock).
+        if (!isAuthEventProcessing.current) {
+          isAuthEventProcessing.current = true;
+          try {
+            await loadAll(existingSession.user.id);
+          } finally {
+            isAuthEventProcessing.current = false;
+          }
         }
-        setLoading(false);
       }
+      if (mounted) setLoading(false);
     });
 
     return () => {
