@@ -47,10 +47,6 @@ const Login = () => {
     defaultValues: { phone: "", password: "" },
   });
 
-  // Redirect already-authenticated users away from the login page.
-  // FIX: Only redirect once loading is fully resolved. Previously this could
-  // fire while loading was still true (session not yet confirmed), causing
-  // a flash-redirect to /dashboard before auth state was ready.
   useEffect(() => {
     if (!loading && user) {
       navigate("/dashboard", { replace: true });
@@ -77,11 +73,6 @@ const Login = () => {
 
       if (error) throw error;
 
-      // FIX: Do NOT imperatively navigate here. The useEffect above watches
-      // the auth state and will navigate once the AuthProvider has finished
-      // calling loadAll() and flipped loading back to false. Navigating here
-      // early was causing the dashboard to render before roles were loaded,
-      // making it appear as though the app was "hanging" on a blank screen.
     } catch (err: any) {
       toast({
         title: "Login failed",
@@ -94,10 +85,6 @@ const Login = () => {
     }
   };
 
-  // FIX: Show a full-page loader while the initial auth check is running.
-  // Without this, the login form briefly renders on top of a loading state,
-  // and users who refresh while logged in see the form flicker before the
-  // redirect kicks in.
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center" role="status" aria-label="Checking session">
@@ -127,7 +114,6 @@ const Login = () => {
 
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Phone Field */}
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone number</Label>
                 <div className="relative">
@@ -149,7 +135,6 @@ const Login = () => {
                 )}
               </div>
 
-              {/* Password Field */}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -171,7 +156,6 @@ const Login = () => {
                 )}
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 variant="hero"
