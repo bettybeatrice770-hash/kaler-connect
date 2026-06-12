@@ -48,15 +48,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.rpc('get_user_auth_data');
       if (error) {
         console.error("Error loading user auth data:", error);
+        // SAFE FALLBACK: Reset states so the app doesn't hang on error
+        setRoles([]);
+        setBranchAdminIds([]);
+        setMustChangePassword(false);
         return;
       }
       if (data) {
         setRoles(data.roles ?? []);
         setBranchAdminIds(data.branch_admin_ids ?? []);
         setMustChangePassword(!!data.must_change_password);
+      } else {
+        // SAFE FALLBACK: If RPC returns null data, clear state to allow fallback routing
+        clearRoleState();
       }
     } catch (err) {
       console.error("Unexpected error loading user data:", err);
+      clearRoleState();
     }
   };
 
