@@ -115,25 +115,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
           // If a call is already running for this login cycle, exit immediately to prevent a hang
           if (isAuthEventProcessing.current) return;
-
+          
           isAuthEventProcessing.current = true;
           if (mounted) setLoading(true);
-
-          // FIX: Do NOT await Supabase-calling work directly inside this callback.
-          // onAuthStateChange runs while supabase-js holds an internal auth lock.
-          // loadAll() -> supabase.rpc() internally calls supabase.auth.getSession(),
-          // which needs that same lock -> deadlock -> loadAll() never resolves ->
-          // loading never becomes false -> Login.tsx spins forever.
-          // Deferring with setTimeout(0) lets this callback return and release the
-          // lock before loadAll() runs.
-          setTimeout(async () => {
-            try {
-              await loadAll(newSession.user.id);
-            } finally {
-              isAuthEventProcessing.current = false;
-              if (mounted) setLoading(false);
-            }
-          }, 0);
+          
+          try {
+            await loadAll(newSession.user.id);
+          } finally {
+            isAuthEventProcessing.current = false;
+            if (mounted) setLoading(false);
+          }
         }
       }
     );
