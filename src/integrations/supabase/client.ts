@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// FIX: Provide safe fallbacks to prevent a fatal white-screen crash if Lovable 
+// temporarily drops the environment variables during a preview build.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder-url.supabase.co";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key";
 
 // FIX: In some browsers (notably Chrome when this app is rendered inside a
 // cross-origin iframe, e.g. the Lovable preview pane), accessing
