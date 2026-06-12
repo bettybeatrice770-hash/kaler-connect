@@ -46,16 +46,21 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    const savedVersion = localStorage.getItem("app_version");
-    if (savedVersion !== null && savedVersion !== APP_VERSION) {
-      Object.keys(localStorage)
-        .filter((k) => !k.startsWith("sb-"))
-        .forEach((k) => localStorage.removeItem(k));
-      sessionStorage.clear();
-      localStorage.setItem("app_version", APP_VERSION);
-      window.location.reload();
-    } else if (savedVersion === null) {
-      localStorage.setItem("app_version", APP_VERSION);
+    try {
+      const savedVersion = localStorage.getItem("app_version");
+      if (savedVersion !== null && savedVersion !== APP_VERSION) {
+        Object.keys(localStorage)
+          .filter((k) => !k.startsWith("sb-"))
+          .forEach((k) => localStorage.removeItem(k));
+        sessionStorage.clear();
+        localStorage.setItem("app_version", APP_VERSION);
+        window.location.reload();
+      } else if (savedVersion === null) {
+        localStorage.setItem("app_version", APP_VERSION);
+      }
+    } catch (error) {
+      console.warn("Storage access restricted by environment, skipping version check.", error);
+      // Fails gracefully so the app continues to boot in Lovable Previews / strict mobile browsers
     }
   }, []);
 
