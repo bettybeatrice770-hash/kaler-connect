@@ -1,16 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// FIX: Provide safe fallbacks to prevent a fatal white-screen crash if Lovable 
-// temporarily drops the environment variables during a preview build.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder-url.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key";
+// Restoring the strict reference to your Lovable Cloud database environment variables.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// FIX: In some browsers (notably Chrome when this app is rendered inside a
-// cross-origin iframe, e.g. the Lovable preview pane), accessing
-// window.localStorage throws a SecurityError due to storage partitioning.
-// This adapter probes localStorage once and falls back to an safely-typed 
-// in-memory store if it's inaccessible, so the app always boots.
+// Keep the storage adapter to prevent SecurityError crashes in the Lovable preview iframe
 const createSafeStorage = (): Storage => {
   try {
     const testKey = '__supabase_storage_test__';
@@ -30,20 +25,16 @@ const createSafeStorage = (): Storage => {
   }
 };
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: createSafeStorage(),
-    persistSession: true,
-    autoRefreshToken: true,
-    // FIX: detectSessionInUrl is required so that password-reset and magic-link
-    // tokens in the URL hash are automatically exchanged for a session.
-    // Without this, ResetPassword.tsx never receives a valid session and
-    // hangs on "Validating link..." forever.
-    detectSessionInUrl: true,
-    // FIX: Use the 'pkce' flow for all auth operations. PKCE is more secure and,
-    // critically, it ensures that the session established by a recovery link is
-    // correctly picked up by onAuthStateChange as a PASSWORD_RECOVERY event
-    // rather than being silently dropped.
-    flowType: 'pkce',
-  },
-});
+export const supabase = createClient<Database>(
+  supabaseUrl as string, 
+  supabaseAnonKey as string, 
+  {
+    auth: {
+      storage: createSafeStorage(),
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+  }
+);
