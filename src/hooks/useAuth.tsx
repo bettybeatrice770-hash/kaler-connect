@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadAll = async (userId: string): Promise<void> => {
     try {
-      const { data, error } = await supabase.rpc('get_user_auth_data');
+      const { data, error } = await supabase.rpc("get_user_auth_data");
       if (error) {
         console.error("Error loading user auth data:", error);
         clearRoleState();
@@ -101,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === "PASSWORD_RECOVERY") {
           setSession(newSession);
           setUser(newSession?.user ?? null);
+          setLoading(false);
           return;
         }
 
@@ -115,7 +116,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(newSession);
         setUser(newSession.user);
 
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+        if (
+          event === "SIGNED_IN" ||
+          event === "INITIAL_SESSION" ||
+          event === "TOKEN_REFRESHED"
+        ) {
           if (isAuthEventProcessing.current) return;
           isAuthEventProcessing.current = true;
           if (mounted) setLoading(true);
@@ -157,7 +162,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAdmin: roles.includes("admin"),
         isOfficer: roles.includes("officer"),
         isBranchRep: roles.includes("branch_rep"),
-        isStaff: roles.includes("admin") || roles.includes("officer") || roles.includes("branch_rep"),
+        isStaff:
+          roles.includes("admin") ||
+          roles.includes("officer") ||
+          roles.includes("branch_rep"),
         branchAdminIds,
         mustChangePassword,
         refreshAuth,
