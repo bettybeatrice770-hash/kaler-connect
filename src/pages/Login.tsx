@@ -36,7 +36,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
 
   const {
     register,
@@ -47,15 +47,11 @@ const Login = () => {
     defaultValues: { phone: "", password: "" },
   });
 
-  // Redirect already-authenticated users away from the login page.
-  // FIX: Only redirect once loading is fully resolved. Previously this could
-  // fire while loading was still true (session not yet confirmed), causing
-  // a flash-redirect to /dashboard before auth state was ready.
   useEffect(() => {
-    if (!loading && user) {
+    if (user) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, navigate]);
 
   const onSubmit = async (data: LoginFormData) => {
     const e164 = normalizeKenyanPhone(data.phone);
@@ -77,11 +73,7 @@ const Login = () => {
 
       if (error) throw error;
 
-      // FIX: Do NOT imperatively navigate here. The useEffect above watches
-      // the auth state and will navigate once the AuthProvider has finished
-      // calling loadAll() and flipped loading back to false. Navigating here
-      // early was causing the dashboard to render before roles were loaded,
-      // making it appear as though the app was "hanging" on a blank screen.
+      navigate("/dashboard", { replace: true });
     } catch (err: any) {
       toast({
         title: "Login failed",
@@ -93,18 +85,6 @@ const Login = () => {
       });
     }
   };
-
-  // FIX: Show a full-page loader while the initial auth check is running.
-  // Without this, the login form briefly renders on top of a loading state,
-  // and users who refresh while logged in see the form flicker before the
-  // redirect kicks in.
-  if (loading) {
-    return (
-      <div className="min-h-screen grid place-items-center" role="status" aria-label="Checking session">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-secondary to-background grid place-items-center p-4">
