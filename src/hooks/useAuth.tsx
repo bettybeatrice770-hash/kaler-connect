@@ -106,6 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === "PASSWORD_RECOVERY") {
           setSession(newSession);
           setUser(newSession?.user ?? null);
+          if (mounted) setLoading(false); 
           return;
         }
 
@@ -120,7 +121,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(newSession);
         setUser(newSession.user);
 
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        // FIX: Added TOKEN_REFRESHED to prevent infinite loading when mobile tabs are resumed
+        if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
           // If a call is already running for this login cycle, exit immediately to prevent a hang
           if (isAuthEventProcessing.current) return;
           
@@ -137,10 +139,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // This is your original working logic that lets the login form load instantly
+    // FIX: Ensure loading always resolves even if INITIAL_SESSION is skipped or delayed
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      if (!existingSession && mounted) {
-        setLoading(false);
+      if (mounted) {
+        if (!existingSession) {
+          setLoading(false);
+        } else if (!isAuthEventProcessing.current) {
+          // Safety net: if a session exists but the event listener didn't lock processing, clear loading.
+          setLoading(false);
+        }
       }
     });
 
