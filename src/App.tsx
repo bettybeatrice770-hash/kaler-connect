@@ -9,6 +9,7 @@ import { RequireAuth } from "@/components/portal/RequireAuth";
 import { RequireAdmin } from "@/components/portal/RequireAdmin";
 import { Loader2 } from "lucide-react";
 import Index from "./pages/Index.tsx";
+import { supabase } from "./client";   // ✅ import Supabase client
 
 const APP_VERSION = "2026.06.07-1";
 
@@ -60,8 +61,25 @@ const App = () => {
       }
     } catch (error) {
       console.warn("Storage access restricted by environment, skipping version check.", error);
-      // Fails gracefully so the app continues to boot in Lovable Previews / strict mobile browsers
     }
+  }, []);
+
+  // ✅ Supabase test block
+  useEffect(() => {
+    const testConnection = async () => {
+      const { data, error } = await supabase
+        .from("branches")
+        .select("*")
+        .limit(5);
+
+      if (error) {
+        console.error("Supabase error:", error.message);
+      } else {
+        console.log("Branches data:", data);
+      }
+    };
+
+    testConnection();
   }, []);
 
   return (
@@ -73,24 +91,13 @@ const App = () => {
           <AuthProvider>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
-                {/* --------------------------------------------------------- */}
-                {/* Public Routes                                             */}
-                {/* --------------------------------------------------------- */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-
-                {/* --------------------------------------------------------- */}
-                {/* Protected User Routes                                     */}
-                {/* --------------------------------------------------------- */}
                 <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
                 <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
                 <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-
-                {/* --------------------------------------------------------- */}
-                {/* Protected Admin Routes                                    */}
-                {/* --------------------------------------------------------- */}
                 <Route path="/admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
                 <Route path="/admin/members" element={<RequireAdmin><AdminMembers /></RequireAdmin>} />
                 <Route path="/admin/members/:id" element={<RequireAdmin><AdminMemberDetail /></RequireAdmin>} />
@@ -102,10 +109,6 @@ const App = () => {
                 <Route path="/admin/roles" element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
                 <Route path="/admin/audit" element={<RequireAdmin><AdminAuditLog /></RequireAdmin>} />
                 <Route path="/admin/branches" element={<RequireAdmin><AdminBranches /></RequireAdmin>} />
-
-                {/* --------------------------------------------------------- */}
-                {/* Fallback Route                                            */}
-                {/* --------------------------------------------------------- */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
