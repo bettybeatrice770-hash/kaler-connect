@@ -135,16 +135,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Immediate hydration after refresh
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      if (mounted) {
-        if (existingSession) {
-          setSession(existingSession);
-          setUser(existingSession.user);
-          loadAll(existingSession.user.id);
+    // Streamlined baseline hydration sync
+    supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
+      if (!mounted) return;
+      
+      if (existingSession) {
+        setSession(existingSession);
+        setUser(existingSession.user);
+        try {
+          await loadAll(existingSession.user.id);
+        } catch (e) {
+          console.error(e);
         }
-        setLoading(false);
       }
+      setLoading(false);
     });
 
     return () => {
