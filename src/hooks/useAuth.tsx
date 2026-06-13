@@ -32,6 +32,10 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+// If get_user_auth_data hangs (network stall, DB lock, etc.) we still need
+// to release the loading state rather than spinning forever.
+const AUTH_RPC_TIMEOUT_MS = 8000;
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -42,9 +46,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthEventProcessing = useRef(false);
 
+  const clearRoleState = () => {
+    setRoles([]);
+    setBranchAdminIds([]);
+    setMustChangePassword(false);
+  };
+
   const loadAll = async (userId: string): Promise<void> => {
     try {
-      const { data, error } = await supabase.rpc("get_user_auth_data");
+      const rpcPromise = supabase.rpc("get_user_auth_data");
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error("get_user_auth_data timed out")),
+          AUTH_RPC_TIMEOUT_MS
+        );
+      });
+
+      // Promise.race doesn't cancel the underlying request, but it
+      // guarantees loadAll resolves even if the RPC never does -
+      // which is what keeps `loading` from getting stuck forever.
+      const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
+
       if (error) {
         console.error("Error loading user auth data:", error);
         clearRoleState();
@@ -61,12 +84,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Unexpected error loading user data:", err);
       clearRoleState();
     }
-  };
-
-  const clearRoleState = () => {
-    setRoles([]);
-    setBranchAdminIds([]);
-    setMustChangePassword(false);
   };
 
   const refreshAuth = async () => {
@@ -94,6 +111,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
+    // Single source of truth for session state. INITIAL_SESSION always
+    // fires once on subscribe (with the existing session or null), so a
+    // separate getSession() call is redundant and was racing with this
+    // handler - both could call loadAll and both could flip `loading`
+    // independently, leaving a window where loading=false but roles
+    // hadn't loaded yet.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
@@ -116,40 +139,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(newSession);
         setUser(newSession.user);
 
-        if (
-          event === "SIGNED_IN" ||
-          event === "INITIAL_SESSION" ||
-          event === "TOKEN_REFRESHED"
-        ) {
+        // Only the initial load should hold up the app's `loading` gate.
+        // TOKEN_REFRESHED happens silently every ~hour - re-fetching roles
+        // is correct, but flipping the global loading flag for it causes
+        // a full-app loading flash with no user-facing reason.
+        const isInitialLoad =
+          event === "SIGNED_IN" || event === "INITIAL_SESSION";
+
+        if (isInitialLoad || event === "TOKEN_REFRESHED") {
           if (isAuthEventProcessing.current) return;
           isAuthEventProcessing.current = true;
-          if (mounted) setLoading(true);
+          if (mounted && isInitialLoad) setLoading(true);
 
           try {
             await loadAll(newSession.user.id);
           } finally {
             isAuthEventProcessing.current = false;
-            if (mounted) setLoading(false);
+            if (mounted && isInitialLoad) setLoading(false);
           }
         }
       }
     );
-
-    // Streamlined baseline hydration sync
-    supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
-      if (!mounted) return;
-      
-      if (existingSession) {
-        setSession(existingSession);
-        setUser(existingSession.user);
-        try {
-          await loadAll(existingSession.user.id);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      setLoading(false);
-    });
 
     return () => {
       mounted = false;
