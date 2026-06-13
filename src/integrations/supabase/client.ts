@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Use the secrets you saved in Lovable Cloud (APP_SUPABASE_URL, APP_SUPABASE_ANON_KEY)
+const supabaseUrl = import.meta.env.APP_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.APP_SUPABASE_ANON_KEY;
 
 // Safe storage adapter: avoids Chrome iframe partitioning errors in Lovable preview
 const createSafeStorage = (): Storage => {
@@ -24,6 +25,7 @@ const createSafeStorage = (): Storage => {
   }
 };
 
+// Create Supabase client with secure PKCE flow
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: createSafeStorage(),
