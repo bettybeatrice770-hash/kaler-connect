@@ -97,34 +97,19 @@ const AdminOverview = () => {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ id: string; name: string } | null>(null);
 
-  // Stable string primitive wrapper to prevent unnecessary hook recalculations
   const branchAdminIdsString = useMemo(() => branchAdminIds.join(","), [branchAdminIds]);
 
-  // --- Data Loading ---
+  // --- Data Loading: single RPC instead of 5 separate queries ---
   const loadDashboardData = useCallback(async () => {
     try {
-      const queries = [
-        supabase.from("branches").select("id, name").order("name"),
-        supabase.from("member_records").select("id, full_name, category, status, branch_id, profile_id, development_paid, fpf_paid, advance_subscription_paid"),
-        supabase.from("arrears").select("amount, cleared, member_record_id").eq("cleared", false),
-      ];
-      
-      if (isAdmin) {
-        queries.push(
-          supabase.from("profiles").select("id, full_name, phone, reset_requested_at").eq("reset_requested", true).order("reset_requested_at", { ascending: false }),
-          supabase.from("family_requests").select("id, full_name, category, phone, birth_month, birth_year, family_id, submitted_by_profile_id, created_at, profiles!family_requests_submitted_by_profile_id_fkey(full_name), families(family_name)").eq("status", "pending").order("created_at", { ascending: true })
-        );
-      }
+      const { data, error } = await supabase.rpc("get_admin_overview_data");
+      if (error) throw error;
 
-      const results = await Promise.all(queries);
-      const combinedError = results.find(r => r.error)?.error;
-      if (combinedError) throw combinedError;
-
-      let allBranches = (results[0].data as Branch[]) || [];
-      let allRecs = (results[1].data as MemberRecord[]) || [];
-      const allArrears = (results[2].data as Arrear[]) || [];
-      const allResets = isAdmin ? (results[3].data as ResetRequest[]) || [] : [];
-      const allFamilyReqs = isAdmin ? (results[4].data as unknown as FamilyRequest[]) || [] : [];
+      let allBranches = (data?.branches as Branch[]) || [];
+      let allRecs = (data?.member_records as MemberRecord[]) || [];
+      const allArrears = (data?.arrears as Arrear[]) || [];
+      const allResets = (data?.reset_requests as ResetRequest[]) || [];
+      const allFamilyReqs = (data?.family_requests as FamilyRequest[]) || [];
 
       if (branchScoped) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
