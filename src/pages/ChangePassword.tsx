@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Card,
   CardContent,
@@ -12,100 +13,81 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, KeyRound, XCircle } from "lucide-react";
+import { Loader2, KeyRound } from "lucide-react";
 
-// Possible states for the page so the UI is always unambiguous.
-type PageState = "checking" | "ready" | "invalid" | "success";
-
-const ResetPassword = () => {
+/**
+ * ChangePassword — forced password-change screen.
+ *
+ * Flow:
+ *  1. Admin sets a temporary password for the member via the admin panel.
+ *  2. The member logs in with that temporary password (normal /login flow).
+ *  3. useAuth detects `must_change_password = true` on the profile.
+ *  4. RequireAuth redirects the member here before they can access anything else.
+ *  5. The member chooses a permanent password and submits.
+ *  6. We update the Supabase auth password AND clear `must_change_password`.
+ *  7. We sign the user out so they log in fresh — prevents stale session issues.
+ *
+ * NO magic links / reset tokens are involved. The session is already active.
+ */
+const ChangePassword = () => {
   const navigate = useNavigate();
-  const [pageState, setPageState] = useState<PageState>("checking");
+  const { refreshProfileFlags } = useAuth();
+
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    // FIX: The old code called getSession() and checked for any session.
-    // That is wrong for a password-reset flow. A reset link does not restore
-    // a normal session — Supabase emits a PASSWORD_RECOVERY event and
-    // provides a short-lived recovery session only if detectSessionInUrl is
-    // enabled (now set in client.ts). We must listen for that specific event.
-    //
-    // Additionally, the old code had no timeout: if the link was expired or
-    // the URL hash was missing, the page would hang on "Validating link…"
-    // indefinitely. We now detect that case and show a clear error message.
-
-    let settled = false;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (settled) return;
-
-        if (event === "PASSWORD_RECOVERY" && session) {
-          settled = true;
-          setPageState("ready");
-        } else if (event === "SIGNED_IN" && session) {
-          // Can happen if the user is already signed in and navigates here
-          // manually — treat it as ready so they can still change their password.
-          settled = true;
-          setPageState("ready");
-        } else if (event === "SIGNED_OUT") {
-          // Token was expired or invalid.
-          settled = true;
-          setPageState("invalid");
-        }
-      }
-    );
-
-    // FIX: Fallback timeout — if no PASSWORD_RECOVERY event fires within
-    // 8 seconds the link is almost certainly broken or expired.
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        setPageState("invalid");
-      }
-    }, 8_000);
-
-    return () => {
-      clearTimeout(timer);
-      subscription.unsubscribe();
-    };
-  }, []);
+  const pwMismatch = pw2.length > 0 && pw !== pw2;
+  const pwTooShort = pw.length > 0 && pw.length < 8;
+  const canSubmit = pw.length >= 8 && pw === pw2 && !busy;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (pw.length < 8) {
-      return toast({
+      toast({
         title: "Password too short",
         description: "Use at least 8 characters.",
         variant: "destructive",
       });
+      return;
     }
 
     if (pw !== pw2) {
-      return toast({
+      toast({
         title: "Passwords don't match",
         description: "Both fields must be identical.",
         variant: "destructive",
       });
+      return;
     }
 
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: pw });
-      if (error) throw error;
+      // Step 1: Update the Supabase auth password.
+      const { error: authError } = await supabase.auth.updateUser({ password: pw });
+      if (authError) throw authError;
 
-      setPageState("success");
-      toast({ title: "Password updated successfully." });
+      // Step 2: Clear the must_change_password flag on the profile.
+      // We do this via RPC so row-level security doesn't block the self-update.
+      const { error: rpcError } = await supabase.rpc("clear_must_change_password");
+      if (rpcError) {
+        // Non-fatal: log it but don't block the user — the password IS updated.
+        // The flag will be re-checked on next login; worst case they see this
+        // screen once more, which is harmless.
+        console.error("Could not clear must_change_password flag:", rpcError);
+      }
 
-      // Sign out so the user logs in fresh with the new password.
+      toast({ title: "Password updated successfully. Please log in again." });
+
+      // Step 3: Sign out so the user re-authenticates with the new password.
+      // This also resets all auth state cleanly (roles, flags, etc.).
       await supabase.auth.signOut();
-      setTimeout(() => navigate("/login", { replace: true }), 1_500);
+      navigate("/login", { replace: true });
     } catch (err: any) {
       toast({
-        title: "Reset failed",
-        description: err.message || "An unexpected error occurred.",
+        title: "Password update failed",
+        description: err.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -120,95 +102,71 @@ const ResetPassword = () => {
           <CardTitle className="font-display text-2xl flex items-center gap-2">
             <KeyRound className="h-5 w-5" /> Set a new password
           </CardTitle>
-          <CardDescription>Enter your new password below.</CardDescription>
+          <CardDescription>
+            Your account has a temporary password. Please choose a permanent password
+            before continuing.
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
-          {pageState === "checking" && (
-            <div className="flex items-center gap-3 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              Validating your reset link…
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newpw">New password</Label>
+              <Input
+                id="newpw"
+                type="password"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                autoComplete="new-password"
+                disabled={busy}
+                required
+                minLength={8}
+              />
+              {pwTooShort && (
+                <p className="text-xs font-medium text-destructive">
+                  Password must be at least 8 characters.
+                </p>
+              )}
             </div>
-          )}
 
-          {/* FIX: Previously the page hung here forever when the link was invalid.
-              Now we surface a clear, actionable error message with a back link. */}
-          {pageState === "invalid" && (
-            <div className="space-y-4 py-2">
-              <div className="flex items-start gap-3 text-sm text-destructive">
-                <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold">This reset link has expired or is invalid.</p>
-                  <p className="text-muted-foreground mt-1">
-                    Password reset links expire after a short time and can only
-                    be used once. Please request a new one.
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate("/forgot-password", { replace: true })}
-              >
-                Request a new reset
-              </Button>
+            <div className="space-y-2">
+              <Label htmlFor="confirmpw">Confirm password</Label>
+              <Input
+                id="confirmpw"
+                type="password"
+                value={pw2}
+                onChange={(e) => setPw2(e.target.value)}
+                autoComplete="new-password"
+                disabled={busy}
+                required
+              />
+              {pwMismatch && (
+                <p className="text-xs font-medium text-destructive">
+                  Passwords do not match.
+                </p>
+              )}
             </div>
-          )}
 
-          {pageState === "ready" && (
-            <form onSubmit={submit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="newpw">New password</Label>
-                <Input
-                  id="newpw"
-                  type="password"
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  autoComplete="new-password"
-                  disabled={busy}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmpw">Confirm password</Label>
-                <Input
-                  id="confirmpw"
-                  type="password"
-                  value={pw2}
-                  onChange={(e) => setPw2(e.target.value)}
-                  autoComplete="new-password"
-                  disabled={busy}
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                variant="hero"
-                className="w-full"
-                disabled={busy || pw.length < 8 || pw !== pw2}
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating…
-                  </>
-                ) : (
-                  "Update password"
-                )}
-              </Button>
-            </form>
-          )}
-
-          {pageState === "success" && (
-            <div className="flex items-center gap-3 text-sm text-muted-foreground py-4">
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              Password updated. Redirecting to login…
-            </div>
-          )}
+            <Button
+              type="submit"
+              variant="hero"
+              className="w-full"
+              disabled={!canSubmit}
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                "Set permanent password"
+              )}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </main>
   );
 };
 
-export default ResetPassword;
+export default ChangePassword;
