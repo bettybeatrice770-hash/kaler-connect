@@ -2,15 +2,17 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const supabaseUrl = import.meta.env.APP_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.APP_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Runtime guard to prevent cryptic failures
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     "[client.ts] Supabase credentials missing. " +
-    "Ensure APP_SUPABASE_URL and APP_SUPABASE_ANON_KEY are saved in Lovable Secrets " +
-    "and that vite.config.ts has envPrefix: 'APP_'."
+    "Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set as environment " +
+    "variables for this build (Lovable Cloud env vars and/or Netlify site " +
+    "environment variables). No custom envPrefix is required - Vite exposes " +
+    "VITE_-prefixed vars by default."
   );
 }
 
