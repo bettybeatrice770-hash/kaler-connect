@@ -1,9 +1,18 @@
+// src/integrations/supabase/client.ts
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Use the secrets you saved in Lovable Cloud (APP_SUPABASE_URL, APP_SUPABASE_ANON_KEY)
 const supabaseUrl = import.meta.env.APP_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.APP_SUPABASE_ANON_KEY;
+
+// Runtime guard to prevent cryptic failures
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "[client.ts] Supabase credentials missing. " +
+    "Ensure APP_SUPABASE_URL and APP_SUPABASE_ANON_KEY are saved in Lovable Secrets " +
+    "and that vite.config.ts has envPrefix: 'APP_'."
+  );
+}
 
 // Safe storage adapter: avoids Chrome iframe partitioning errors in Lovable preview
 const createSafeStorage = (): Storage => {
@@ -31,7 +40,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: createSafeStorage(),
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,   // required for password reset & magic links
-    flowType: 'pkce',           // secure flow, ensures recovery links work
+    detectSessionInUrl: true,
+    flowType: 'pkce',
   },
 });
