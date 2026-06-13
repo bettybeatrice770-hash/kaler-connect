@@ -454,6 +454,14 @@ export type Database = {
         Returns: boolean
       }
       current_user_family_id: { Args: never; Returns: string }
+      get_user_auth_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          roles: string[]
+          branch_admin_ids: string[]
+          must_change_password: boolean
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
