@@ -15,12 +15,22 @@ import { toast } from "@/hooks/use-toast";
 import { normalizeKenyanPhone } from "@/lib/phone";
 import { Loader2, ArrowLeft, Phone } from "lucide-react";
 
+/**
+ * ForgotPassword — member-facing "I can't log in" screen.
+ *
+ * This app does NOT use email/link-based password resets.
+ * Instead, the secretary manually sets a temporary password via the admin
+ * panel. This page simply records the member's request so the secretary
+ * knows who to call back.
+ *
+ * No reset link is ever sent. No link ever expires.
+ * The member logs in with the temporary password issued by the secretary,
+ * and is immediately prompted to choose a permanent password.
+ */
 const ForgotPassword = () => {
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  // FIX: Track phone validation inline so the user sees an error before
-  // they submit, rather than after the RPC call.
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const validatePhone = (value: string) => {
@@ -48,13 +58,12 @@ const ForgotPassword = () => {
         _phone: e164,
       });
 
-      // FIX: The old code returned early on error without resetting `busy`,
-      // leaving the button permanently disabled after a network failure.
       if (error) {
-        // Surface the real error message so admins can diagnose issues.
         toast({
           title: "Could not submit request",
-          description: error.message || "Please try again or call the secretary directly.",
+          description:
+            error.message ||
+            "Please try again or call the secretary directly.",
           variant: "destructive",
         });
         return;
@@ -64,7 +73,8 @@ const ForgotPassword = () => {
       toast({
         title: "Reset request recorded",
         description:
-          "The secretary will verify your identity and issue a new temporary password.",
+          "The secretary will verify your identity and issue a temporary password. " +
+          "You will then be prompted to choose a permanent password when you log in.",
       });
     } catch (err: any) {
       toast({
@@ -73,8 +83,6 @@ const ForgotPassword = () => {
         variant: "destructive",
       });
     } finally {
-      // FIX: Always reset busy state — the original code skipped this on the
-      // error path because it used `return` before the `setBusy(false)` call.
       setBusy(false);
     }
   };
@@ -95,10 +103,14 @@ const ForgotPassword = () => {
               Request password reset
             </CardTitle>
             <CardDescription>
-              Enter your registered phone number. The secretary will verify you
-              offline, then issue a temporary password you'll change at next
-              login. You can also call{" "}
-              <strong>Joseph Oluoch</strong> on{" "}
+              Enter your registered phone number. The secretary will verify your
+              identity and issue a <strong>temporary password</strong> — there is no
+              link to click and nothing expires. Once you log in with the temporary
+              password you will be asked to set a permanent one.
+              <br />
+              <br />
+              You can also call{" "}
+              <strong>Joseph Oluoch</strong> directly on{" "}
               <a className="text-primary" href="tel:+254701594936">
                 0701 594 936
               </a>
@@ -110,13 +122,11 @@ const ForgotPassword = () => {
             {sent ? (
               <div className="space-y-3">
                 <p className="text-sm">
-                  Your request has been recorded. Please wait for the secretary
-                  to issue a new temporary password.
+                  Your request has been recorded. Please wait for the secretary to
+                  contact you with a temporary password. Once you receive it, log in
+                  normally and you will be prompted to set a permanent password.
                 </p>
-                <Link
-                  to="/login"
-                  className="text-sm text-primary hover:underline"
-                >
+                <Link to="/login" className="text-sm text-primary hover:underline">
                   Back to login
                 </Link>
               </div>
@@ -134,7 +144,6 @@ const ForgotPassword = () => {
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value);
-                        // Clear the error as the user types so it feels responsive.
                         if (phoneError) validatePhone(e.target.value);
                       }}
                       onBlur={() => validatePhone(phone)}
