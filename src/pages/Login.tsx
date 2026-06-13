@@ -73,7 +73,9 @@ const Login = () => {
 
       if (error) throw error;
 
-      navigate("/dashboard", { replace: true });
+      // Full page reload after login so useAuth re-initializes
+      // with the session already set and loads roles correctly
+      window.location.href = "/dashboard";
     } catch (err: any) {
       toast({
         title: "Login failed",
