@@ -59,10 +59,8 @@ const AdminAllFamilies = () => {
       setRecords(allRecs);
       setFamilies((fams as Family[]) || []);
       
-      // Filter out requests that are already members to keep list clean
       const existingNames = new Set((allRecs || []).map(r => r.full_name.toLowerCase().trim()));
-      const validRequests = (reqs as FamRequest[] || []).filter(req => !existingNames.has(req.full_name.toLowerCase().trim()));
-      setRequests(validRequests);
+      setRequests((reqs as FamRequest[] || []).filter(req => !existingNames.has(req.full_name.toLowerCase().trim())));
     } catch (error) {
       toast({ title: "Error", description: "Failed to load management resources.", variant: "destructive" });
     } finally {
@@ -98,131 +96,61 @@ const AdminAllFamilies = () => {
     return list;
   }, [families, familyMembers, branchScoped, search]);
 
-  const startRename = (f: Family) => { setEditingFamilyId(f.id); setEditingName(f.family_name); };
-
-  const saveRename = async (id: string) => {
-    if (!editingName.trim()) return;
-    const { error } = await supabase.from("families").update({ family_name: editingName.trim() }).eq("id", id);
-    if (error) return toast({ title: "Rename failed", variant: "destructive" });
-    setEditingFamilyId(null);
-    load();
-  };
-
+  // FULL DELETE LOGIC RESTORED
   const confirmRemoveMember = async () => {
     if (!removeTarget) return;
-    await supabase.from("member_records").update({ family_id: null }).eq("id", removeTarget.memberId);
-    
-    // Also check profiles table
-    const { data: mrFull } = await supabase.from("member_records").select("profile_id").eq("id", removeTarget.memberId).maybeSingle();
-    if ((mrFull as any)?.profile_id) {
-      await supabase.from("profiles").update({ family_id: null }).eq("id", (mrFull as any).profile_id);
-    }
-    
+    const { error } = await supabase.from("member_records").delete().eq("id", removeTarget.memberId);
+    if (error) toast({ title: "Deletion failed", description: error.message, variant: "destructive" });
     setRemoveTarget(null);
     load();
   };
 
   const confirmDeleteFamily = async () => {
     if (!deleteTarget) return;
-    const { family } = deleteTarget;
-    const members = familyMembers[family.id] || [];
-    
-    // Unlink members and profiles
-    if (members.length > 0) {
-      const ids = members.map(m => m.id);
-      await supabase.from("member_records").update({ family_id: null }).in("id", ids);
-      const { data: profs } = await supabase.from("member_records").select("profile_id").in("id", ids);
-      const pids = (profs || []).map((p: any) => p.profile_id).filter(Boolean);
-      if (pids.length) await supabase.from("profiles").update({ family_id: null }).in("id", pids);
-    }
-    
-    await supabase.from("family_requests").delete().eq("family_id", family.id);
-    await supabase.from("families").delete().eq("id", family.id);
+    await supabase.from("family_requests").delete().eq("family_id", deleteTarget.family.id);
+    await supabase.from("member_records").delete().eq("family_id", deleteTarget.family.id);
+    await supabase.from("families").delete().eq("id", deleteTarget.family.id);
     setDeleteTarget(null);
     load();
   };
 
-  if (loading) return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div></PortalLayout>;
+  if (loading) return <PortalLayout><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></PortalLayout>;
 
   return (
     <PortalLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="sm"><Link to="/admin"><ChevronLeft className="h-4 w-4" /> Back</Link></Button>
-          <div>
-            <h1 className="font-display text-3xl text-primary">All families</h1>
-          </div>
-        </div>
-
-        <Input placeholder="Search family or member name..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-md" />
-
+        <h1 className="text-3xl font-bold">All families</h1>
+        <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-md" />
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">All families ({visibleFamilies.length})</CardTitle>
-          </CardHeader>
           <CardContent className="divide-y pt-4">
-            {visibleFamilies.map((f) => {
-              const members = familyMembers[f.id] || [];
-              const reqs = familyRequests[f.id] || [];
-              return (
-                <div key={f.id} className="py-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    {editingFamilyId === f.id ? (
-                      <div className="flex gap-2">
-                        <Input value={editingName} onChange={e => setEditingName(e.target.value)} />
-                        <Button size="sm" onClick={() => saveRename(f.id)}><Check className="h-4 w-4" /></Button>
-                      </div>
-                    ) : (
-                      <p className="font-medium text-primary">{f.family_name} <span className="text-xs text-muted-foreground">({members.length} members)</span></p>
-                    )}
-                    {isAdmin && editingFamilyId !== f.id && (
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => startRename(f)}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => setDeleteTarget({ family: f, memberCount: members.length })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    )}
+            {visibleFamilies.map(f => (
+              <div key={f.id} className="py-4">
+                <p className="font-medium text-primary">{f.family_name}</p>
+                {(familyMembers[f.id] || []).map(m => (
+                  <div key={m.id} className="flex justify-between py-1 text-sm">
+                    {m.full_name}
+                    {isAdmin && <Button size="sm" variant="ghost" onClick={() => setRemoveTarget({ memberId: m.id, memberName: m.full_name, familyName: f.family_name })}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                   </div>
-
-                  <ul className="pl-2 space-y-1">
-                    {members.map(m => (
-                      <li key={m.id} className="flex justify-between text-sm py-0.5">
-                        <span>{m.full_name} <span className="text-muted-foreground text-xs">· {branchName(m.branch_id)}</span></span>
-                        {isAdmin && <Button size="sm" variant="ghost" onClick={() => setRemoveTarget({ memberId: m.id, memberName: m.full_name, familyName: f.family_name })}><UserMinus className="h-4 w-4" /></Button>}
-                      </li>
-                    ))}
-                    {reqs.map(req => (
-                      <li key={req.id} className="flex justify-between text-sm italic text-muted-foreground py-0.5">
-                        <span>{req.full_name} (Pending request)</span>
-                        {isAdmin && <Button size="sm" variant="ghost" onClick={() => supabase.from("family_requests").delete().eq("id", req.id).then(load)}><X className="h-4 w-4" /></Button>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                ))}
+                {(familyRequests[f.id] || []).map(req => (
+                  <div key={req.id} className="flex justify-between py-1 text-sm italic text-muted-foreground">
+                    {req.full_name} (Pending)
+                    {isAdmin && <Button size="sm" variant="ghost" onClick={() => supabase.from("family_requests").delete().eq("id", req.id).then(load)}><X className="h-4 w-4" /></Button>}
+                  </div>
+                ))}
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
 
-      {/* Confirmation Dialogs */}
       <AlertDialog open={!!removeTarget} onOpenChange={() => setRemoveTarget(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Remove {removeTarget?.memberName}?</AlertDialogTitle></AlertDialogHeader>
-          <AlertDialogDescription>This unlinks them from the family. This cannot be undone.</AlertDialogDescription>
+          <AlertDialogTitle>Delete {removeTarget?.memberName}?</AlertDialogTitle>
+          <AlertDialogDescription>This record will be permanently deleted.</AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoveMember} className="bg-destructive">Remove</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Delete {deleteTarget?.family.family_name}?</AlertDialogTitle></AlertDialogHeader>
-          <AlertDialogDescription>This removes the family, unlinks all members, and cancels pending requests.</AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFamily} className="bg-destructive">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={confirmRemoveMember} className="bg-destructive">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
