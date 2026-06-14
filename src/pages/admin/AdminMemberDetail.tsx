@@ -151,26 +151,39 @@ const AdminMemberDetail = () => {
   };
 
   const deleteMember = async () => {
-    // Capture profile_id before deletion so we can remove the auth user too
-    const profileId = record?.profile_id || null;
+    setBusy(true);
+    try {
+      const profileId = record?.profile_id || null;
 
-    const { error } = await supabase.functions.invoke("delete-member", { body: { member_record_id: id } });
-    if (error) return toast({ title: "Delete failed", variant: "destructive" });
+      // Delete all arrears for this member
+      await supabase.from("arrears").delete().eq("member_record_id", id);
 
-    // Remove the linked profile & auth account so the member can no longer log in
-    // and the record no longer appears on the client profile page
-    if (profileId) {
-      await supabase.functions.invoke("delete-user-account", { body: { profile_id: profileId } });
+      // Delete the member record itself
+      const { error } = await supabase.from("member_records").delete().eq("id", id);
+      if (error) throw error;
+
+      // Delete the linked auth profile so they can no longer log in
+      if (profileId) {
+        await supabase.from("profiles").delete().eq("id", profileId);
+      }
+
+      toast({ title: "Member deleted", description: "Member and all associated data removed." });
+      navigate(backTo);
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
     }
-
-    toast({ title: "Member deleted", description: "Member and login account removed." });
-    navigate(backTo);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-    if (deleteTarget.type === 'member') deleteMember();
-    else supabase.from("arrears").delete().eq("id", deleteTarget.id).then(() => load());
+    if (deleteTarget.type === 'member') {
+      await deleteMember();
+    } else {
+      await supabase.from("arrears").delete().eq("id", deleteTarget.id);
+      load();
+    }
     setDeleteTarget(null);
   };
 
@@ -268,6 +281,31 @@ const AdminMemberDetail = () => {
           </Card>
         )}
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTarget?.type === 'member' ? 'Delete member?' : 'Delete arrear?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.type === 'member'
+                ? `This will permanently delete ${record?.full_name} and all their data including arrears and login access. This cannot be undone.`
+                : 'This arrear entry will be permanently removed.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Yes, delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </PortalLayout>
   );
 };
