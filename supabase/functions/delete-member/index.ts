@@ -24,7 +24,10 @@ Deno.serve(async (req) => {
 
     const { data: rec } = await admin.from("member_records").select("profile_id, full_name").eq("id", member_record_id).maybeSingle();
 
+    // Cascade deletion
+    await admin.from("family_requests").delete().eq("member_record_id", member_record_id);
     await admin.from("arrears").delete().eq("member_record_id", member_record_id);
+    
     const { error: delErr } = await admin.from("member_records").delete().eq("id", member_record_id);
     if (delErr) return jsonResponse(req, { error: delErr.message }, 400);
 
