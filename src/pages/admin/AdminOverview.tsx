@@ -270,7 +270,7 @@ const AdminOverview = () => {
         
         if (recErr || !newRec) throw recErr || new Error("Could not create member record");
         
-        if (req.category === "student") {
+        if (req.category === "student" || req.category === "woman") {
           await supabase.from("arrears").insert([
             { member_record_id: newRec.id, type: "subscription", year: new Date().getFullYear(), amount: 200 },
             { member_record_id: newRec.id, type: "fines_penalties", year: new Date().getFullYear(), amount: 500, funeral_name: "Registration fee" },
@@ -286,7 +286,7 @@ const AdminOverview = () => {
       }
       toast({ 
         title: `${req.full_name} admitted`, 
-        description: req.category === "student" ? "Arrears of Ksh 700 created." : "Added to family." 
+        description: (req.category === "student" || req.category === "woman") ? "Arrears of Ksh 700 created." : "Added to family." 
       });
       await loadDashboardData();
     } catch (err: any) {
@@ -299,15 +299,10 @@ const AdminOverview = () => {
   const rejectFamilyRequest = async (req: FamilyRequest) => {
     setProcessingRequest(req.id);
     try {
-      const adminUserId = user?.id;
-      const { error } = await supabase.from("family_requests").update({ 
-        status: "rejected", 
-        reviewed_at: new Date().toISOString(), 
-        reviewed_by: adminUserId,
-      }).eq("id", req.id);
+      const { error } = await supabase.from("family_requests").delete().eq("id", req.id);
       
       if (error) throw error;
-      toast({ title: `${req.full_name} request rejected` });
+      toast({ title: `${req.full_name} request rejected and removed` });
       await loadDashboardData();
     } catch (error: any) {
       toast({ title: "Reject failed", description: error.message, variant: "destructive" });
