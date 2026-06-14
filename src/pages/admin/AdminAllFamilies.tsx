@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
@@ -59,6 +59,7 @@ const AdminAllFamilies = () => {
       setRecords(allRecs);
       setFamilies((fams as Family[]) || []);
       
+      // REQUIREMENT 2: Exclude children/members from pending if they are already in the list
       const existingNames = new Set((allRecs || []).map(r => r.full_name.toLowerCase().trim()));
       setRequests((reqs as FamRequest[] || []).filter(req => !existingNames.has(req.full_name.toLowerCase().trim())));
     } catch (error) {
@@ -97,7 +98,6 @@ const AdminAllFamilies = () => {
   }, [families, familyMembers, branchScoped, search]);
 
   const startRename = (f: Family) => { setEditingFamilyId(f.id); setEditingName(f.family_name); };
-
   const saveRename = async (id: string) => {
     if (!editingName.trim()) return;
     const { error } = await supabase.from("families").update({ family_name: editingName.trim() }).eq("id", id);
@@ -106,11 +106,12 @@ const AdminAllFamilies = () => {
     load();
   };
 
-  // REQUIREMENT 3: FULL PERMANENT DELETION
+  // REQUIREMENT 3: FULL DELETE LOGIC
   const confirmRemoveMember = async () => {
     if (!removeTarget) return;
     const { error } = await supabase.from("member_records").delete().eq("id", removeTarget.memberId);
     if (error) toast({ title: "Deletion failed", description: error.message, variant: "destructive" });
+    else toast({ title: "Member removed permanently" });
     setRemoveTarget(null);
     load();
   };
