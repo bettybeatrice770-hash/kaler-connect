@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, ChevronLeft, Pencil, Trash2, UserMinus, Check, X } from "lucide-react";
+import { Loader2, ChevronLeft, Pencil, Trash2, UserMinus, Check, X, Download } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -47,7 +47,7 @@ const AdminAllFamilies = () => {
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [records, setRecords] = useState<MRec[]>([]);
-  const [branchScopedRecords, setBranchScopedRecords] = useState<MRec[]>([]);
+  const [branchScopedFamilyIds, setBranchScopedFamilyIds] = useState<Set<string> | null>(null);
   const [families, setFamilies] = useState<Family[]>([]);
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [editingFamilyId, setEditingFamilyId] = useState<string | null>(null);
@@ -73,22 +73,27 @@ const AdminAllFamilies = () => {
           .order("full_name"),
       ]);
 
-      let allBranches = (brs as Branch[]) || [];
-      let allRecs = (recs as MRec[]) || [];
+      const allBranches = (brs as Branch[]) || [];
+      const allRecs = (recs as MRec[]) || [];
 
       if (branchScoped) {
-        allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
-        // Track only the branch-scoped records to determine which families to show.
-        // We keep allRecs (full set) for display so the complete family roster
-        // (all members + dependents) is visible to the branch admin.
-        setBranchScopedRecords(
-          allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id))
-        );
+        // Build the set of family IDs that have at least one member in this
+        // branch admin's branches. This controls WHICH families are shown,
+        // but we keep allRecs intact so every family's full roster — including
+        // members from other branches and all dependents — is displayed.
+        const scopedFamilyIds = new Set<string>();
+        for (const r of allRecs) {
+          if (r.family_id && r.branch_id && branchAdminIds.includes(r.branch_id)) {
+            scopedFamilyIds.add(r.family_id);
+          }
+        }
+        setBranchScopedFamilyIds(scopedFamilyIds);
+        setBranches(allBranches.filter((b) => branchAdminIds.includes(b.id)));
       } else {
-        setBranchScopedRecords([]);
+        setBranchScopedFamilyIds(null);
+        setBranches(allBranches);
       }
 
-      setBranches(allBranches);
       setRecords(allRecs);
       setFamilies((fams as Family[]) || []);
       setDependents((deps as Dependent[]) || []);
@@ -127,20 +132,10 @@ const AdminAllFamilies = () => {
     return m;
   }, [dependents]);
 
-  // Family ids that have at least one member in the branch admin's branches.
-  const branchFamilyIds = useMemo(() => {
-    if (!branchScoped) return null;
-    const ids = new Set<string>();
-    for (const r of branchScopedRecords) {
-      if (r.family_id) ids.add(r.family_id);
-    }
-    return ids;
-  }, [branchScoped, branchScopedRecords]);
-
   const visibleFamilies = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = branchScoped
-      ? families.filter((f) => branchFamilyIds?.has(f.id))
+    let list = branchScoped && branchScopedFamilyIds
+      ? families.filter((f) => branchScopedFamilyIds.has(f.id))
       : families;
 
     if (q) {
@@ -151,7 +146,7 @@ const AdminAllFamilies = () => {
       );
     }
     return list;
-  }, [families, familyMembers, familyDependents, branchScoped, search]);
+  }, [families, familyMembers, familyDependents, branchScoped, branchScopedFamilyIds, search]);
 
   const startRename = (f: Family) => {
     setEditingFamilyId(f.id);
@@ -209,19 +204,9 @@ const AdminAllFamilies = () => {
     if (!deleteDependentTarget) return;
     const { dependent } = deleteDependentTarget;
 
-    // Try the RPC first; if it doesn't exist fall back to a direct row delete.
-    const { error: rpcError } = await supabase.rpc("admin_delete_family_request", { _id: dependent.id });
-    if (rpcError) {
-      // RPC not found — delete directly from the table instead.
-      const { error: directError } = await supabase
-        .from("family_requests")
-        .delete()
-        .eq("id", dependent.id);
-      setDeleteDependentTarget(null);
-      if (directError) return toast({ title: "Delete failed", description: directError.message, variant: "destructive" });
-    } else {
-      setDeleteDependentTarget(null);
-    }
+    const { error } = await supabase.rpc("admin_delete_family_request", { _id: dependent.id });
+    setDeleteDependentTarget(null);
+    if (error) return toast({ title: "Delete failed", description: error.message, variant: "destructive" });
 
     toast({ title: "Family member removed" });
     load();
@@ -247,21 +232,14 @@ const AdminAllFamilies = () => {
     // orphaned, pointing at a family_id that no longer exists, with no UI left
     // to manage them.
     for (const d of deps) {
-      const { error: rpcErr } = await supabase.rpc("admin_delete_family_request", { _id: d.id });
-      if (rpcErr) {
-        // RPC not available — fall back to direct delete.
-        const { error: directErr } = await supabase
-          .from("family_requests")
-          .delete()
-          .eq("id", d.id);
-        if (directErr) {
-          setDeleteTarget(null);
-          return toast({
-            title: "Delete failed",
-            description: `Could not remove dependent "${d.full_name}": ${directErr.message}. Family was not deleted.`,
-            variant: "destructive",
-          });
-        }
+      const { error: depErr } = await supabase.rpc("admin_delete_family_request", { _id: d.id });
+      if (depErr) {
+        setDeleteTarget(null);
+        return toast({
+          title: "Delete failed",
+          description: `Could not remove dependent "${d.full_name}": ${depErr.message}. Family was not deleted.`,
+          variant: "destructive",
+        });
       }
     }
 
@@ -275,6 +253,50 @@ const AdminAllFamilies = () => {
 
     toast({ title: "Family deleted", description: parts.length ? parts.join(", ") + "." : undefined });
     load();
+  };
+
+  const downloadCSV = () => {
+    const rows: string[][] = [
+      ["Family Name", "Type", "Full Name", "Branch", "Phone", "Category"],
+    ];
+
+    for (const f of visibleFamilies) {
+      const members = familyMembers[f.id] || [];
+      const deps = familyDependents[f.id] || [];
+
+      for (const m of members) {
+        rows.push([
+          f.family_name,
+          "Member",
+          m.full_name,
+          branchName(m.branch_id),
+          m.phone || "",
+          "",
+        ]);
+      }
+      for (const d of deps) {
+        rows.push([
+          f.family_name,
+          "Dependent",
+          d.full_name,
+          "",
+          d.phone || "",
+          categoryLabel(d.category),
+        ]);
+      }
+    }
+
+    const csv = rows
+      .map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kaler-families-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -303,12 +325,18 @@ const AdminAllFamilies = () => {
           </div>
         </div>
 
-        <Input
-          placeholder="Search family name or member name..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="max-w-md"
-        />
+        <div className="flex items-center gap-3 flex-wrap">
+          <Input
+            placeholder="Search family name or member name..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="max-w-md"
+          />
+          <Button variant="outline" size="sm" onClick={downloadCSV} className="flex items-center gap-2 shrink-0">
+            <Download className="h-4 w-4" />
+            Download CSV
+          </Button>
+        </div>
 
         <Card>
           <CardHeader>
