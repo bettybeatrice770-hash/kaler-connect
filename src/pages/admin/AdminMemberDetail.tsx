@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { PortalLayout } from "@/components/portal/PortalLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ const AdminMemberDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const backTo = (location.state as any)?.from || "/admin/members";
+  const { isAdmin } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -149,9 +151,19 @@ const AdminMemberDetail = () => {
   };
 
   const deleteMember = async () => {
+    // Capture profile_id before deletion so we can remove the auth user too
+    const profileId = record?.profile_id || null;
+
     const { error } = await supabase.functions.invoke("delete-member", { body: { member_record_id: id } });
     if (error) return toast({ title: "Delete failed", variant: "destructive" });
-    toast({ title: "Member deleted" });
+
+    // Remove the linked profile & auth account so the member can no longer log in
+    // and the record no longer appears on the client profile page
+    if (profileId) {
+      await supabase.functions.invoke("delete-user-account", { body: { profile_id: profileId } });
+    }
+
+    toast({ title: "Member deleted", description: "Member and login account removed." });
     navigate(backTo);
   };
 
@@ -225,8 +237,12 @@ const AdminMemberDetail = () => {
             </div>
             <div className="space-y-1 sm:col-span-2"><Label>Admin notes</Label><Textarea rows={3} value={form.admin_notes || ""} onChange={(e) => setForm({ ...form, admin_notes: e.target.value })} /></div>
             <div className="sm:col-span-2 flex flex-col sm:flex-row justify-between gap-3 pt-2">
-              <Button variant="destructive" onClick={() => setDeleteTarget({ type: 'member', id: id! })} className="w-full sm:w-auto"><UserX className="h-4 w-4 mr-2" /> Delete member</Button>
-              <Button onClick={saveMember} variant="hero" className="w-full sm:w-auto">Save changes</Button>
+              {isAdmin && (
+                <Button variant="destructive" onClick={() => setDeleteTarget({ type: 'member', id: id! })} className="w-full sm:w-auto">
+                  <UserX className="h-4 w-4 mr-2" /> Delete member
+                </Button>
+              )}
+              <Button onClick={saveMember} variant="hero" className="w-full sm:w-auto sm:ml-auto">Save changes</Button>
             </div>
           </CardContent>
         </Card>
