@@ -260,6 +260,104 @@ const AdminMemberDetail = () => {
           </CardContent>
         </Card>
 
+        {/* ── Arrears & Savings Breakdown ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Arrears &amp; savings</CardTitle>
+            <CardDescription>
+              Open arrears total: <span className="font-semibold text-destructive">Ksh {openArrears.toLocaleString()}</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {arrears.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No arrear or savings entries.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Year</TableHead>
+                    <TableHead className="text-right">Amount (Ksh)</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {arrears.map((a) => (
+                    <TableRow key={a.id} className={a.cleared ? "opacity-50" : ""}>
+                      <TableCell className="font-medium">{typeLabel(a.type)}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{a.funeral_name || "—"}</TableCell>
+                      <TableCell>{a.year}</TableCell>
+                      <TableCell className="text-right">{Number(a.amount).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {a.cleared
+                          ? <Badge variant="secondary" className="text-green-700"><Check className="h-3 w-3 mr-1" />Cleared</Badge>
+                          : <Badge variant="destructive">Owed</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="icon" variant="ghost"
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                          onClick={() => setDeleteTarget({ type: 'arrear', id: a.id })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
+            {/* ── Add arrear / savings entry ── */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3 flex items-center gap-2"><Plus className="h-4 w-4" /> Add entry</p>
+              <div className="grid sm:grid-cols-4 gap-3 items-end">
+                <div className="space-y-1">
+                  <Label>Type</Label>
+                  <Select value={newArr.type} onValueChange={(v) => setNewArr({ ...newArr, type: v, funeral_name: "" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ALL_TYPES.map((t) => <SelectItem key={t} value={t}>{typeLabel(t)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>
+                    {newArr.type === "funeral" ? "Deceased name" : newArr.type === "fines_penalties" ? "Description" : "Note (optional)"}
+                  </Label>
+                  <Input
+                    value={newArr.funeral_name}
+                    onChange={(e) => setNewArr({ ...newArr, funeral_name: e.target.value })}
+                    placeholder={newArr.type === "funeral" ? "Name of deceased" : newArr.type === "fines_penalties" ? "e.g. Late for meeting" : ""}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Year</Label>
+                  <Input
+                    type="number"
+                    value={newArr.year}
+                    onChange={(e) => setNewArr({ ...newArr, year: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Amount (Ksh)</Label>
+                  <Input
+                    type="number"
+                    value={newArr.amount}
+                    onChange={(e) => setNewArr({ ...newArr, amount: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <Button onClick={addArrear} variant="hero" size="sm" className="mt-3">
+                <Plus className="h-4 w-4 mr-1" /> Add entry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {!record.profile_id ? (
           <Card>
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4" /> Issue login</CardTitle></CardHeader>
