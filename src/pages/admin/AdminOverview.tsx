@@ -273,7 +273,7 @@ const AdminOverview = () => {
         if (req.category === "student" || req.category === "woman") {
           await supabase.from("arrears").insert([
             { member_record_id: newRec.id, type: "subscription", year: new Date().getFullYear(), amount: 200 },
-            { member_record_id: newRec.id, type: "fines_penalties", year: new Date().getFullYear(), amount: 500, funeral_name: "Registration fee" },
+            { member_record_id: newRec.id, type: "registration", year: new Date().getFullYear(), amount: 500, funeral_name: "Registration fee" },
           ]);
         }
         
@@ -300,7 +300,6 @@ const AdminOverview = () => {
     setProcessingRequest(req.id);
     try {
       const { error } = await supabase.from("family_requests").delete().eq("id", req.id);
-      
       if (error) throw error;
       toast({ title: `${req.full_name} request rejected and removed` });
       await loadDashboardData();
