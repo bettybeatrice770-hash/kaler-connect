@@ -47,6 +47,7 @@ const AdminAllFamilies = () => {
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [records, setRecords] = useState<MRec[]>([]);
+  const [branchScopedRecords, setBranchScopedRecords] = useState<MRec[]>([]);
   const [families, setFamilies] = useState<Family[]>([]);
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [editingFamilyId, setEditingFamilyId] = useState<string | null>(null);
@@ -77,7 +78,14 @@ const AdminAllFamilies = () => {
 
       if (branchScoped) {
         allBranches = allBranches.filter((b) => branchAdminIds.includes(b.id));
-        allRecs = allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id));
+        // Track only the branch-scoped records to determine which families to show.
+        // We keep allRecs (full set) for display so the complete family roster
+        // (all members + dependents) is visible to the branch admin.
+        setBranchScopedRecords(
+          allRecs.filter((r) => r.branch_id && branchAdminIds.includes(r.branch_id))
+        );
+      } else {
+        setBranchScopedRecords([]);
       }
 
       setBranches(allBranches);
@@ -119,10 +127,20 @@ const AdminAllFamilies = () => {
     return m;
   }, [dependents]);
 
+  // Family ids that have at least one member in the branch admin's branches.
+  const branchFamilyIds = useMemo(() => {
+    if (!branchScoped) return null;
+    const ids = new Set<string>();
+    for (const r of branchScopedRecords) {
+      if (r.family_id) ids.add(r.family_id);
+    }
+    return ids;
+  }, [branchScoped, branchScopedRecords]);
+
   const visibleFamilies = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = branchScoped
-      ? families.filter((f) => (familyMembers[f.id] || []).length > 0)
+      ? families.filter((f) => branchFamilyIds?.has(f.id))
       : families;
 
     if (q) {
@@ -191,9 +209,19 @@ const AdminAllFamilies = () => {
     if (!deleteDependentTarget) return;
     const { dependent } = deleteDependentTarget;
 
-    const { error } = await supabase.rpc("admin_delete_family_request", { _id: dependent.id });
-    setDeleteDependentTarget(null);
-    if (error) return toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    // Try the RPC first; if it doesn't exist fall back to a direct row delete.
+    const { error: rpcError } = await supabase.rpc("admin_delete_family_request", { _id: dependent.id });
+    if (rpcError) {
+      // RPC not found — delete directly from the table instead.
+      const { error: directError } = await supabase
+        .from("family_requests")
+        .delete()
+        .eq("id", dependent.id);
+      setDeleteDependentTarget(null);
+      if (directError) return toast({ title: "Delete failed", description: directError.message, variant: "destructive" });
+    } else {
+      setDeleteDependentTarget(null);
+    }
 
     toast({ title: "Family member removed" });
     load();
@@ -219,14 +247,21 @@ const AdminAllFamilies = () => {
     // orphaned, pointing at a family_id that no longer exists, with no UI left
     // to manage them.
     for (const d of deps) {
-      const { error: depErr } = await supabase.rpc("admin_delete_family_request", { _id: d.id });
-      if (depErr) {
-        setDeleteTarget(null);
-        return toast({
-          title: "Delete failed",
-          description: `Could not remove dependent "${d.full_name}": ${depErr.message}. Family was not deleted.`,
-          variant: "destructive",
-        });
+      const { error: rpcErr } = await supabase.rpc("admin_delete_family_request", { _id: d.id });
+      if (rpcErr) {
+        // RPC not available — fall back to direct delete.
+        const { error: directErr } = await supabase
+          .from("family_requests")
+          .delete()
+          .eq("id", d.id);
+        if (directErr) {
+          setDeleteTarget(null);
+          return toast({
+            title: "Delete failed",
+            description: `Could not remove dependent "${d.full_name}": ${directErr.message}. Family was not deleted.`,
+            variant: "destructive",
+          });
+        }
       }
     }
 
